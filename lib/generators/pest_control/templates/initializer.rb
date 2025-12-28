@@ -166,4 +166,11 @@ PestControl.configure do |config|
   # Dashboard authentication - Option 2: Custom lambda (takes precedence)
   # Example: only allow admin users
   # config.dashboard_auth = ->(controller) { controller.current_user&.admin? }
+
+  # How long to keep trap records in the database (default: 3 years)
+  # Set to nil to keep records indefinitely
+  # config.trap_records_retention = 3.years
+
+  # To clean up expired records, run periodically (e.g., via a cron job):
+  #   PestControl::TrapRecord.cleanup_expired!
 end
