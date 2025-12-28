@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔍 Records - Pest Control Lab</title>
+  <%= render 'styles' %>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="header-left">
+        <a href="<%= pest_control.pest_control_lab_path %>" class="back-link">← Back to Lab</a>
+        <h1>🔍 Trap Records</h1>
+      </div>
+      <div class="result-count">
+        <%= @total_count %> record<%= @total_count == 1 ? '' : 's' %> found
+      </div>
+    </header>
+
+    <div class="filters">
+      <%= form_tag(pest_control.pest_control_records_path, method: :get, class: "filters-form") do %>
+        <div class="filter-group search">
+          <label class="filter-label">Search</label>
+          <input type="text" name="q" value="<%= params[:q] %>" placeholder="IP, path, user agent..." class="filter-input">
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Trap Type</label>
+          <select name="type" class="filter-select">
+            <option value="">All types</option>
+            <% @trap_types.each do |type| %>
+              <option value="<%= type %>" <%= 'selected' if params[:type] == type %>>
+                <%= PestControl::TrapRecord::TRAP_TYPE_LABELS[type] || type.titleize %>
+              </option>
+            <% end %>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">From</label>
+          <input type="date" name="from" value="<%= params[:from] %>" class="filter-input">
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">To</label>
+          <input type="date" name="to" value="<%= params[:to] %>" class="filter-input">
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">IP</label>
+          <input type="text" name="ip" value="<%= params[:ip] %>" placeholder="Filter by IP" class="filter-input">
+        </div>
+
+        <div class="filter-actions">
+          <button type="submit" class="btn btn-primary">🔍 Search</button>
+          <a href="<%= pest_control.pest_control_records_path %>" class="btn btn-secondary">Clear</a>
+        </div>
+      <% end %>
+
+      <% if filters_active? %>
+        <div class="active-filters">
+          <%= filter_tag("Filter", params[:filter], :filter) if params[:filter].present? %>
+          <%= filter_tag("Search", "\"#{params[:q]}\"", :q) if params[:q].present? %>
+          <%= filter_tag("Type", params[:type], :type) if params[:type].present? %>
+          <%= filter_tag("IP", params[:ip], :ip) if params[:ip].present? %>
+          <%= filter_tag("Date", "#{params[:from] || '...'} → #{params[:to] || '...'}", [:from, :to]) if params[:from].present? || params[:to].present? %>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="card">
+      <% if @records.any? %>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>IP</th>
+                <th>Trap Type</th>
+                <th>Path</th>
+                <th>User Agent</th>
+                <th>Creds?</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @records.each do |record| %>
+                <%= render 'record_row', record: record, show_date: true, show_credentials: true %>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+
+        <%= pagination(page: @page, total_pages: @total_pages, total_count: @total_count, per_page: @per_page) %>
+      <% else %>
+        <div class="empty-state">
+          <div class="icon">🔍</div>
+          <p>No records found matching your criteria.</p>
+          <% if filters_active? %>
+            <p style="margin-top: 1rem;">
+              <a href="<%= pest_control.pest_control_records_path %>" class="btn btn-secondary">Clear filters</a>
+            </p>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</body>
+</html>

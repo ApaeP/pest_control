@@ -1,0 +1,15 @@
+<%# locals: (record:, show_date: false, show_credentials: false) %>
+
+<tr>
+  <td><%= record.created_at.strftime(show_date ? "%Y-%m-%d %H:%M" : "%H:%M:%S") %></td>
+  <td><%= ip_cell(record.ip) %></td>
+  <td><%= trap_type_badge(record, linkable: true) %></td>
+  <td><%= truncate(record.path, length: 30) %></td>
+  <td><%= truncate(record.user_agent, length: 25) %></td>
+  <% if show_credentials %>
+    <td><%= credentials_badge(record) %></td>
+  <% end %>
+  <td>
+    <a href="<%= pest_control.pest_control_record_path(id: record.id) %>" class="btn btn-sm btn-success">View</a>
+  </td>
+</tr>

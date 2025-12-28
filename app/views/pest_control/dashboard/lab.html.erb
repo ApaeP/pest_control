@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧪 Pest Control Lab</title>
+  <%= render 'styles' %>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🧪</span>
+        <div class="logo-text">
+          <h1>Pest Control Lab</h1>
+          <p>Bot Specimen Analysis Dashboard</p>
+        </div>
+      </div>
+      <div class="timestamp">
+        Last refresh: <%= Time.current.strftime("%Y-%m-%d %H:%M:%S %Z") %>
+      </div>
+    </header>
+
+    <section class="stats-grid">
+      <%= stat_card(label: "Total Specimens", value: @stats[:total], color: "green", path: pest_control.pest_control_records_path) %>
+      <%= stat_card(label: "Caught Today", value: @stats[:today], color: "blue", path: pest_control.pest_control_records_path(filter: 'today')) %>
+      <%= stat_card(label: "Unique IPs", value: @stats[:unique_ips], color: "purple", path: pest_control.pest_control_records_path(filter: 'unique_ips')) %>
+      <%= stat_card(label: "Credentials Captured", value: @stats[:credentials_captured], color: "yellow", path: pest_control.pest_control_records_path(filter: 'credentials')) %>
+      <%= stat_card(label: "Currently Banned", value: @banned_ips.size, color: "red", anchor: "banned-ips") %>
+    </section>
+
+    <div class="two-col">
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">🎯 Trap Types</h2>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <%= render 'type_chart', by_type: @by_type %>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">🏆 Top Offenders</h2>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <% if @top_ips.any? %>
+              <table>
+                <thead>
+                  <tr>
+                    <th>IP Address</th>
+                    <th>Attempts</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% @top_ips.each do |ip, count| %>
+                    <tr>
+                      <td><%= ip %></td>
+                      <td><%= count %></td>
+                      <td>
+                        <% if PestControl.banned?(ip) %>
+                          <span class="badge badge-red">🔒 Banned</span>
+                        <% else %>
+                          <span class="badge badge-green">Active</span>
+                        <% end %>
+                      </td>
+                      <td><%= ban_toggle_button(ip, size: :small) %></td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            <% else %>
+              <div class="empty-state">
+                <div class="icon">😇</div>
+                <p>No offenders yet.<br>The bots haven't found you!</p>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">📋 Recent Specimens</h2>
+      </div>
+      <div class="card">
+        <div class="table-wrapper">
+          <% if @recent_records.any? %>
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>IP</th>
+                  <th>Trap Type</th>
+                  <th>Path</th>
+                  <th>User Agent</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% @recent_records.each do |record| %>
+                  <%= render 'record_row', record: record %>
+                <% end %>
+              </tbody>
+            </table>
+          <% else %>
+            <div class="card-body">
+              <div class="empty-state">
+                <div class="icon">🕵️</div>
+                <p>No specimens collected yet.<br>The bots are still looking for your honeypot!</p>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </section>
+
+    <% if @banned_ips.any? %>
+      <section class="section" id="banned-ips">
+        <div class="section-header">
+          <h2 class="section-title">🔒 Currently Banned IPs</h2>
+        </div>
+        <div class="card">
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>IP Address</th>
+                  <th>Reason</th>
+                  <th>Banned At</th>
+                  <th>Expires At</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% @banned_ips.each do |ip, info| %>
+                  <tr>
+                    <td><%= ip %></td>
+                    <td><span class="badge badge-yellow"><%= info[:reason] %></span></td>
+                    <td><%= info[:banned_at].strftime("%Y-%m-%d %H:%M") %></td>
+                    <td><%= info[:expires_at].strftime("%Y-%m-%d %H:%M") %></td>
+                    <td><%= ban_toggle_button(ip, size: :small) %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    <% end %>
+
+    <footer class="footer">
+      <p>🧪 Pest Control Lab v<%= PestControl::VERSION %> — <a href="https://github.com/ApaeP/pest_control" target="_blank">GitHub</a></p>
+      <p>Making bots' lives miserable since 2024 🐝</p>
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<%# locals: (by_type:) %>
+
+<% if by_type.any? %>
+  <% max_count = by_type.values.max || 1 %>
+  <% by_type.each do |type, count| %>
+    <div class="type-bar">
+      <span class="type-name"><%= PestControl::TrapRecord::TRAP_TYPE_LABELS[type] || type.titleize %></span>
+      <div class="type-bar-track">
+        <% color = trap_type_to_badge_class(type).sub('badge-', '') %>
+        <div class="type-bar-fill <%= color %>" style="width: <%= (count.to_f / max_count * 100).round %>%;">
+          <%= count %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+<% else %>
+  <div class="empty-state">
+    <div class="icon">🎉</div>
+    <p>No specimens collected yet.<br>Your honeypot is squeaky clean!</p>
+  </div>
+<% end %>

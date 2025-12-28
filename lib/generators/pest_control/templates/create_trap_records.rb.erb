@@ -1,0 +1,43 @@
+# frozen_string_literal: true
+
+class CreatePestControlTrapRecords < ActiveRecord::Migration<%= "[#{ActiveRecord::Migration.current_version}]" %>
+  def change
+    create_table :pest_control_trap_records do |t|
+      # Core trap info
+      t.string :ip, null: false, index: true
+      t.string :trap_type, null: false, index: true
+      t.string :path
+      t.string :method
+
+      # Request metadata
+      t.string :user_agent
+      t.string :referer
+      t.string :host
+      t.text :query_string
+
+      # Headers and params (JSON)
+      t.json :headers
+      t.json :params
+
+      # Captured credentials (if any)
+      t.json :credentials
+
+      # Fingerprint data (if JS fingerprinting is enabled)
+      t.json :fingerprint
+
+      # Visit tracking
+      t.integer :visit_count, default: 0
+
+      # Flags
+      t.boolean :will_endless_stream, default: false
+
+      # Extra data bucket for future-proofing
+      t.json :extra_data
+
+      t.timestamps
+    end
+
+    add_index :pest_control_trap_records, :created_at
+    add_index :pest_control_trap_records, [:ip, :trap_type]
+  end
+end

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Log In &lsaquo; <%= PestControl.configuration.fake_site_name %></title>
+  <style type="text/css">
+    html { background: #f1f1f1; }
+    body { background: #f1f1f1; color: #444; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; }
+    #login { width: 320px; padding: 8% 0 0; margin: auto; }
+    #login h1 a { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHBhdGggZmlsbD0iIzAwNzNhYSIgZD0iTTIwIDNjLTkuNCAwLTE3IDcuNi0xNyAxN3M3LjYgMTcgMTcgMTcgMTctNy42IDE3LTE3UzI5LjQgMyAyMCAzem0wIDMxYy03LjcgMC0xNC02LjMtMTQtMTRzNi4zLTE0IDE0LTE0IDE0IDYuMyAxNCAxNC02LjMgMTQtMTQgMTR6Ii8+PC9zdmc+'); background-size: 84px; background-position: center; background-repeat: no-repeat; display: block; height: 84px; outline: none; text-decoration: none; text-indent: -9999px; width: 100%; }
+    #loginform { background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.04); margin-top: 20px; padding: 26px 24px 34px; }
+    label { color: #1e1e1e; display: block; font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+    input[type="text"], input[type="password"] { background: #fff; border: 1px solid #8c8f94; border-radius: 4px; box-sizing: border-box; color: #2c3338; font-size: 24px; margin: 0 0 16px; padding: 3px 5px; width: 100%; }
+    input[type="text"]:focus, input[type="password"]:focus { border-color: #2271b1; box-shadow: 0 0 0 1px #2271b1; outline: 2px solid transparent; }
+    .forgetmenot { margin-bottom: 16px; }
+    .forgetmenot label { font-weight: 400; }
+    input[type="checkbox"] { margin-right: 6px; }
+    #wp-submit { background: #2271b1; border: 1px solid #2271b1; border-radius: 3px; color: #fff; cursor: pointer; font-size: 13px; line-height: 2.15; min-height: 32px; padding: 0 10px; }
+    #wp-submit:hover { background: #135e96; border-color: #135e96; }
+    .login-error { background: #fcf0f1; border: 1px solid #d63638; border-left: 4px solid #d63638; color: #d63638; margin-bottom: 16px; padding: 12px; }
+    #nav, #backtoblog { margin: 24px 0 0; padding: 0; text-align: center; }
+    #nav a, #backtoblog a { color: #50575e; text-decoration: none; }
+    #nav a:hover, #backtoblog a:hover { color: #2271b1; }
+    .fp-canvas { display: none; }
+  </style>
+</head>
+<body class="login">
+  <div id="login">
+    <h1><a href="#"><%= PestControl.configuration.fake_site_name %></a></h1>
+
+    <% if @error %>
+      <div class="login-error">
+        <strong>Error:</strong> The username or password you entered is incorrect.
+        <a href="/wp-login.php?action=lostpassword">Lost your password?</a>
+      </div>
+    <% end %>
+
+    <form name="loginform" id="loginform" action="/wp-login.php" method="post">
+      <p>
+        <label for="user_login">Username or Email Address</label>
+        <input type="text" name="log" id="user_login" class="input" value="" size="20" autocomplete="username" required>
+      </p>
+      <p>
+        <label for="user_pass">Password</label>
+        <input type="password" name="pwd" id="user_pass" class="input" value="" size="20" autocomplete="current-password" required>
+      </p>
+      <p class="forgetmenot">
+        <label for="rememberme"><input name="rememberme" type="checkbox" id="rememberme" value="forever"> Remember Me</label>
+      </p>
+      <p class="submit">
+        <input type="submit" name="wp-submit" id="wp-submit" class="button button-primary button-large" value="Log In">
+        <input type="hidden" name="redirect_to" value="/wp-admin/">
+        <input type="hidden" name="testcookie" value="1">
+      </p>
+    </form>
+
+    <p id="nav"><a href="/wp-login.php?action=lostpassword">Lost your password?</a></p>
+    <p id="backtoblog"><a href="/">&larr; Go to <%= PestControl.configuration.fake_site_name %></a></p>
+  </div>
+
+  <% if PestControl.fingerprinting_enabled? %>
+  <script>
+    (function() {
+      try {
+        var fp = {
+          screen: window.screen.width + 'x' + window.screen.height,
+          tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          lang: navigator.language,
+          platform: navigator.platform,
+          cores: navigator.hardwareConcurrency,
+          memory: navigator.deviceMemory,
+          touch: 'ontouchstart' in window,
+          webgl: (function() {
+            try {
+              var c = document.createElement('canvas');
+              var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+              if (gl) { var d = gl.getExtension('WEBGL_debug_renderer_info'); return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'unknown'; }
+            } catch(e) {}
+            return 'none';
+          })(),
+          plugins: Array.from(navigator.plugins || []).map(function(p) { return p.name; }).join(','),
+          ts: Date.now()
+        };
+        var img = new Image();
+        img.src = '/wp-admin/fp.gif?' + encodeURIComponent(JSON.stringify(fp));
+      } catch(e) {}
+    })();
+  </script>
+
+  <canvas class="fp-canvas" width="200" height="50"></canvas>
+  <script>
+    (function() {
+      try {
+        var c = document.querySelector('.fp-canvas'), ctx = c.getContext('2d');
+        ctx.textBaseline = 'top'; ctx.font = '14px Arial'; ctx.fillStyle = '#f60';
+        ctx.fillRect(125, 1, 62, 20); ctx.fillStyle = '#069'; ctx.fillText('BotTrap', 2, 15);
+        var d = c.toDataURL(), h = 0;
+        for (var i = 0; i < d.length; i++) { h = ((h << 5) - h) + d.charCodeAt(i); h |= 0; }
+        document.cookie = 'cfp=' + h + '; path=/';
+      } catch(e) {}
+    })();
+  </script>
+  <% end %>
+</body>
+</html>

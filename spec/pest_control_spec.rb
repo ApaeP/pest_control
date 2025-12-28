@@ -1,0 +1,233 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+
+RSpec.describe PestControl do # rubocop:disable Metrics/BlockLength
+  describe '.configure' do
+    it 'yields configuration block' do
+      PestControl.configure do |config|
+        config.ban_duration = 12.hours
+        config.fake_site_name = 'Test Site'
+      end
+
+      expect(PestControl.configuration.ban_duration).to eq(12.hours)
+      expect(PestControl.configuration.fake_site_name).to eq('Test Site')
+    end
+  end
+
+  describe 'IP banning' do # rubocop:disable Metrics/BlockLength
+    let(:ip) { '192.168.1.100' }
+
+    describe '.ban_ip!' do
+      it 'bans an IP with a reason' do
+        PestControl.ban_ip!(ip, 'test_reason')
+
+        expect(PestControl.banned?(ip)).to be true
+        expect(PestControl.banned_ips[ip][:reason]).to eq('test_reason')
+      end
+
+      it 'does not ban when banning is disabled' do
+        PestControl.configuration.banning_enabled = false
+
+        PestControl.ban_ip!(ip, 'test_reason')
+
+        expect(PestControl.banned?(ip)).to be false
+      end
+
+      it 'calls on_ip_banned callback' do
+        callback_called = false
+        PestControl.configuration.on_ip_banned = lambda { |banned_ip, reason|
+          callback_called = true
+          expect(banned_ip).to eq(ip)
+          expect(reason).to eq('test_reason')
+        }
+
+        PestControl.ban_ip!(ip, 'test_reason')
+
+        expect(callback_called).to be true
+      end
+    end
+
+    describe '.banned?' do
+      it 'returns false for non-banned IPs' do
+        expect(PestControl.banned?('1.2.3.4')).to be false
+      end
+
+      it 'returns true for banned IPs' do
+        PestControl.ban_ip!(ip, 'test')
+        expect(PestControl.banned?(ip)).to be true
+      end
+
+      it 'returns false for expired bans' do
+        PestControl.configuration.ban_duration = -1.second # Already expired
+        PestControl.ban_ip!(ip, 'test')
+
+        expect(PestControl.banned?(ip)).to be false
+      end
+    end
+
+    describe '.unban_ip!' do
+      it 'removes an IP from the ban list' do
+        PestControl.ban_ip!(ip, 'test')
+        expect(PestControl.banned?(ip)).to be true
+
+        PestControl.unban_ip!(ip)
+        expect(PestControl.banned?(ip)).to be false
+      end
+    end
+
+    describe '.clear_all_bans!' do
+      it 'removes all banned IPs' do
+        PestControl.ban_ip!('1.1.1.1', 'test')
+        PestControl.ban_ip!('2.2.2.2', 'test')
+
+        PestControl.clear_all_bans!
+
+        expect(PestControl.banned_ips).to be_empty
+      end
+    end
+  end
+
+  describe 'visit counting' do
+    let(:ip) { '10.0.0.1' }
+
+    describe '.increment_visit_count' do
+      it 'increments visit count for an IP' do
+        expect(PestControl.increment_visit_count(ip)).to eq(1)
+        expect(PestControl.increment_visit_count(ip)).to eq(2)
+        expect(PestControl.increment_visit_count(ip)).to eq(3)
+      end
+    end
+
+    describe '.get_visit_count' do
+      it 'returns 0 for new IPs' do
+        expect(PestControl.get_visit_count('new.ip')).to eq(0)
+      end
+
+      it 'returns current count for tracked IPs' do
+        3.times { PestControl.increment_visit_count(ip) }
+        expect(PestControl.get_visit_count(ip)).to eq(3)
+      end
+    end
+
+    describe '.reset_visit_count' do
+      it 'resets visit count to 0' do
+        3.times { PestControl.increment_visit_count(ip) }
+        PestControl.reset_visit_count(ip)
+
+        expect(PestControl.get_visit_count(ip)).to eq(0)
+      end
+    end
+  end
+
+  describe '.calculate_tarpit_delay' do
+    before do
+      PestControl.configuration.tarpit_enabled = true
+      PestControl.configuration.tarpit_base_delay = 2
+      PestControl.configuration.tarpit_increment_per_visit = 0.5
+      PestControl.configuration.tarpit_max_delay = 10
+    end
+
+    it 'returns 0 when tarpit is disabled' do
+      PestControl.configuration.tarpit_enabled = false
+      expect(PestControl.calculate_tarpit_delay(5)).to eq(0)
+    end
+
+    it 'calculates delay based on visit count' do
+      expect(PestControl.calculate_tarpit_delay(1)).to eq(2.5)  # 2 + (1 * 0.5)
+      expect(PestControl.calculate_tarpit_delay(4)).to eq(4.0)  # 2 + (4 * 0.5)
+    end
+
+    it 'caps delay at max_delay' do
+      expect(PestControl.calculate_tarpit_delay(100)).to eq(10)
+    end
+  end
+
+  describe '.should_endless_stream?' do
+    let(:ip) { '5.5.5.5' }
+
+    before do
+      PestControl.configuration.endless_stream_enabled = true
+      PestControl.configuration.endless_stream_threshold = 3
+      PestControl.configuration.endless_stream_random_chance = 0 # No random chance
+    end
+
+    it 'returns false when disabled' do
+      PestControl.configuration.endless_stream_enabled = false
+      5.times { PestControl.increment_visit_count(ip) }
+
+      expect(PestControl.should_endless_stream?(ip)).to be false
+    end
+
+    it 'returns false below threshold' do
+      2.times { PestControl.increment_visit_count(ip) }
+      expect(PestControl.should_endless_stream?(ip)).to be false
+    end
+
+    it 'returns true at or above threshold' do
+      3.times { PestControl.increment_visit_count(ip) }
+      expect(PestControl.should_endless_stream?(ip)).to be true
+    end
+  end
+
+  describe 'memory mode configuration' do
+    describe '.memory_enabled?' do
+      it 'returns false by default' do
+        expect(PestControl.memory_enabled?).to be false
+      end
+
+      it 'returns true when enabled' do
+        PestControl.configuration.memory_enabled = true
+        expect(PestControl.memory_enabled?).to be true
+      end
+    end
+
+    describe '.dashboard_path' do
+      it 'returns default path' do
+        expect(PestControl.dashboard_path).to eq('/pest-control/lab')
+      end
+
+      it 'returns custom path when configured' do
+        PestControl.configuration.dashboard_path = '/admin/pest-lab'
+        expect(PestControl.dashboard_path).to eq('/admin/pest-lab')
+      end
+    end
+  end
+
+  describe '.notify_bot_trapped' do
+    let(:trap_data) do
+      {
+        ip: '192.168.1.1',
+        type: 'FAKE_LOGIN_VIEW',
+        path: '/wp-login.php'
+      }
+    end
+
+    it 'calls on_bot_trapped callback' do
+      callback_called = false
+      PestControl.configuration.on_bot_trapped = ->(data) { callback_called = true }
+
+      PestControl.notify_bot_trapped(trap_data)
+
+      expect(callback_called).to be true
+    end
+
+    context 'when memory mode is enabled' do
+      before { PestControl.configuration.memory_enabled = true }
+
+      it 'saves trap record to database' do
+        expect { PestControl.notify_bot_trapped(trap_data) }
+          .to change(PestControl::TrapRecord, :count).by(1)
+      end
+    end
+
+    context 'when memory mode is disabled' do
+      before { PestControl.configuration.memory_enabled = false }
+
+      it 'does not save to database' do
+        expect { PestControl.notify_bot_trapped(trap_data) }
+          .not_to change(PestControl::TrapRecord, :count)
+      end
+    end
+  end
+end

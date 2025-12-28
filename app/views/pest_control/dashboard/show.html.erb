@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔬 Specimen #<%= @record.id %> - Pest Control Lab</title>
+  <%= render 'styles' %>
+</head>
+<body>
+  <div class="container">
+    <nav class="breadcrumb">
+      <a href="<%= pest_control.pest_control_lab_path %>">← Back to Lab</a>
+    </nav>
+
+    <header class="header">
+      <h1>
+        🔬 Specimen #<%= @record.id %>
+        <%= trap_type_badge(@record) %>
+      </h1>
+      <div class="actions">
+        <%= ban_toggle_button(@record.ip) %>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="card-header">📋 Request Info</div>
+      <div class="card-body">
+        <div class="grid">
+          <div class="field">
+            <div class="field-label">IP Address</div>
+            <div class="field-value"><%= @record.ip %></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Captured At</div>
+            <div class="field-value"><%= @record.created_at.strftime("%Y-%m-%d %H:%M:%S %Z") %></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Method</div>
+            <div class="field-value"><%= @record.method || "—" %></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Path</div>
+            <div class="field-value"><%= @record.path || "—" %></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Host</div>
+            <div class="field-value"><%= @record.host || "—" %></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Visit Count</div>
+            <div class="field-value"><%= @record.visit_count %></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Endless Stream?</div>
+            <div class="field-value"><%= @record.will_endless_stream ? "🌊 Yes" : "No" %></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Referer</div>
+            <div class="field-value"><%= @record.referer || "—" %></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">🤖 User Agent</div>
+      <div class="card-body">
+        <div class="field-value"><%= @record.user_agent || "—" %></div>
+      </div>
+    </div>
+
+    <% if @record.credentials.present? %>
+      <div class="card">
+        <div class="card-header">🔑 Captured Credentials</div>
+        <div class="card-body">
+          <div class="json-block"><%= JSON.pretty_generate(@record.credentials) %></div>
+        </div>
+      </div>
+    <% end %>
+
+    <% if @record.headers.present? %>
+      <div class="card">
+        <div class="card-header">📨 Request Headers</div>
+        <div class="card-body">
+          <div class="json-block"><%= JSON.pretty_generate(@record.headers) %></div>
+        </div>
+      </div>
+    <% end %>
+
+    <% if @record.params.present? %>
+      <div class="card">
+        <div class="card-header">📝 Request Params</div>
+        <div class="card-body">
+          <div class="json-block"><%= JSON.pretty_generate(@record.params) %></div>
+        </div>
+      </div>
+    <% end %>
+
+    <% if @record.query_string.present? %>
+      <div class="card">
+        <div class="card-header">❓ Query String</div>
+        <div class="card-body">
+          <div class="field-value"><%= @record.query_string %></div>
+        </div>
+      </div>
+    <% end %>
+
+    <% if @record.fingerprint.present? %>
+      <div class="card">
+        <div class="card-header">🖐️ Browser Fingerprint</div>
+        <div class="card-body">
+          <div class="json-block"><%= JSON.pretty_generate(@record.fingerprint) %></div>
+        </div>
+      </div>
+    <% end %>
+
+    <% if @record.extra_data.present? %>
+      <div class="card">
+        <div class="card-header">📦 Extra Data</div>
+        <div class="card-body">
+          <div class="json-block"><%= JSON.pretty_generate(@record.extra_data) %></div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</body>
+</html>
