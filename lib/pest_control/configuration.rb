@@ -160,6 +160,10 @@ module PestControl
     # Example: ->(controller) { controller.current_user&.admin? }
     attr_accessor :dashboard_auth
 
+    # How long to keep trap records in the database (default: 3 years)
+    # Set to nil to keep records indefinitely
+    attr_accessor :trap_records_retention
+
     def initialize
       # Banning
       @ban_duration = 24.hours
@@ -219,6 +223,7 @@ module PestControl
       @dashboard_username = nil
       @dashboard_password = nil
       @dashboard_auth = nil
+      @trap_records_retention = 3.years
     end
 
     def stream_chunk_delay_range

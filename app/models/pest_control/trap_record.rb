@@ -38,6 +38,13 @@ module PestControl
       )
     }
 
+    scope :expired, lambda {
+      retention = PestControl.configuration.trap_records_retention
+      return none if retention.nil?
+
+      where('created_at < ?', Time.current - retention)
+    }
+
     TRAP_TYPE_LABELS = {
       'fake_login_view' => 'Fake Login View',
       'credential_capture' => 'Credential Capture',
@@ -86,6 +93,18 @@ module PestControl
           credentials_captured: with_credentials.count,
           top_ips: group(:ip).order('count_id DESC').limit(10).count(:id)
         }
+      end
+
+      def cleanup_expired!
+        retention = PestControl.configuration.trap_records_retention
+        return 0 if retention.nil?
+
+        deleted_count = expired.delete_all
+        if deleted_count.positive?
+          PestControl.log(:info,
+                          "[PEST_CONTROL] 🧹 Cleaned up #{deleted_count} expired trap records")
+        end
+        deleted_count
       end
     end
 

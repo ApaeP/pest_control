@@ -280,7 +280,48 @@ PestControl::TrapRecord.today.count
 PestControl::TrapRecord.by_ip("1.2.3.4")
 PestControl::TrapRecord.with_credentials
 PestControl::TrapRecord.stats
+
+# Clean up old records (run periodically via cron/Sidekiq)
+PestControl::TrapRecord.cleanup_expired!
 ```
+
+### Data Retention
+
+By default, trap records are kept for **3 years**. You can configure this:
+
+```ruby
+PestControl.configure do |config|
+  config.trap_records_retention = 3.years  # Default
+  # config.trap_records_retention = 1.year
+  # config.trap_records_retention = nil    # Keep forever
+end
+```
+
+To clean up expired records, run periodically:
+
+```ruby
+# In a Rake task, cron job, or Sidekiq scheduled job
+PestControl::TrapRecord.cleanup_expired!
+```
+
+### Legal Notice Example
+
+If you're using Memory Mode, you should inform users in your privacy policy. Here's an example paragraph you can adapt:
+
+#### Privacy Policy
+
+> **Protection Against Automated Attacks**
+>
+> This website uses a security system to protect against malicious bots ([PestControl](https://github.com/ApaeP/pest_control)). When a suspicious request is detected (attempts to access non-existent paths such as `/wp-login.php`, `/xmlrpc.php`, or any `.php` file), the following data may be collected and retained for a maximum of 3 years:
+>
+> - IP address
+> - Browser User-Agent
+> - Requested URL and HTTP headers
+> - Submitted credentials (in case of fraudulent login attempts)
+>
+> This data is collected based on our **legitimate interest** (Article 6.1.f of GDPR) to protect our infrastructure against unauthorized access and intrusion attempts.
+>
+> This information is not shared with third parties and is only used for security and threat analysis purposes. No data is collected by PestControl during normal browsing of the website.
 
 ## Managing Banned IPs
 
