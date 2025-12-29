@@ -10,7 +10,9 @@ module PestControl
       credential_capture_blocked: 'CREDENTIAL_CAPTURE_BLOCKED',
       fake_admin_access: 'FAKE_ADMIN_ACCESS',
       xmlrpc_attack: 'XMLRPC_ATTACK',
-      catch_all: 'CATCH_ALL'
+      catch_all: 'CATCH_ALL',
+      legacy_redirect: 'LEGACY_REDIRECT',
+      legacy_tolerated: 'LEGACY_TOLERATED'
     }, prefix: true
 
     validates :ip, presence: true
@@ -51,7 +53,9 @@ module PestControl
       'credential_capture_blocked' => 'Credentials (Blocked IP)',
       'fake_admin_access' => 'Fake Admin Access',
       'xmlrpc_attack' => 'XML-RPC Attack',
-      'catch_all' => 'Catch-All'
+      'catch_all' => 'Catch-All',
+      'legacy_redirect' => 'Legacy Redirect',
+      'legacy_tolerated' => 'Legacy Tolerated'
     }.freeze
 
     class << self
@@ -118,6 +122,7 @@ module PestControl
       when 'fake_login_view' then 'badge-green'
       when 'xmlrpc_attack' then 'badge-yellow'
       when 'fake_admin_access' then 'badge-blue'
+      when 'legacy_redirect', 'legacy_tolerated' then 'badge-gray'
       else 'badge-purple'
       end
     end

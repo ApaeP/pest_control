@@ -5,6 +5,7 @@ module PestControl
     include ActionController::Live
 
     skip_before_action :verify_authenticity_token
+    before_action :handle_legacy_redirect
     layout false
 
     # GET /wp-login.php
@@ -262,6 +263,18 @@ module PestControl
           </struct></value></fault>
         </methodResponse>
       XML
+    end
+
+    def handle_legacy_redirect
+      result = PestControl::LegacyHandler.handle(request)
+      return if result.nil? || result == :ban
+
+      case result[:action]
+      when :redirect
+        redirect_to result[:path], status: :moved_permanently, allow_other_host: false
+      when :not_found
+        render plain: fake_apache_404, status: :not_found, content_type: "text/html"
+      end
     end
   end
 end

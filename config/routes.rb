@@ -42,7 +42,12 @@ PestControl::Engine.routes.draw do
   get '.env',                to: 'traps#catch_all'
   get '.git/*path',          to: 'traps#catch_all'
 
-  # Catch-all for any .php file (must be last)
+  # Catch-all for legacy extensions (must be last)
+  constraints(->(req) { PestControl::LegacyHandler.legacy_extension?(req.path) }) do
+    match '*path', to: 'traps#catch_all', via: :all
+  end
+
+  # Catch-all for any .php file
   constraints(->(req) { req.path.end_with?('.php') }) do
     match '*path', to: 'traps#catch_all', via: :all
   end

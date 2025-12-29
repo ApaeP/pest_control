@@ -4,6 +4,7 @@ require "pest_control/version"
 require "pest_control/configuration"
 require "pest_control/engine"
 require "pest_control/rack_attack_rules"
+require "pest_control/legacy_handler"
 
 module PestControl
   class << self

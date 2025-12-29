@@ -161,6 +161,31 @@ module PestControl
     # Set to nil to keep records indefinitely
     attr_accessor :trap_records_retention
 
+    # ===========================================================================
+    # LEGACY REDIRECTS
+    # ===========================================================================
+
+    # Enable legacy URL handling for old sites migrated from PHP/ASP/etc (default: false)
+    attr_accessor :legacy_redirects_enabled
+
+    # File extensions to treat as legacy URLs (default: [])
+    # Example: %w[php xml asp aspx jsp]
+    attr_accessor :legacy_extensions
+
+    # Custom path mappings, takes priority over auto-strip (default: {})
+    # Example: { "/periode3.php" => "/periode-3", "/feed.xml" => "/rss" }
+    attr_accessor :legacy_mappings
+
+    # Auto-strip extension and redirect: /foo.php → /foo (default: true)
+    attr_accessor :legacy_strip_extension
+
+    # Number of allowed GET visits on unmapped legacy URLs before ban (default: 5)
+    # POST/PUT/DELETE requests are banned immediately
+    attr_accessor :legacy_tolerance
+
+    # Log legacy redirect attempts as LEGACY_REDIRECT trap records (default: false)
+    attr_accessor :legacy_log_redirects
+
     def initialize
       # Banning
       @ban_duration = 24.hours
@@ -220,6 +245,14 @@ module PestControl
       @dashboard_password = nil
       @dashboard_auth = nil
       @trap_records_retention = 3.years
+
+      # Legacy redirects
+      @legacy_redirects_enabled = false
+      @legacy_extensions = []
+      @legacy_mappings = {}
+      @legacy_strip_extension = true
+      @legacy_tolerance = 5
+      @legacy_log_redirects = false
     end
 
     def stream_chunk_delay_range
