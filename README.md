@@ -228,6 +228,71 @@ Default patterns catch:
 - `/backup`, `/bak`, `/old`, `/tmp`
 - Known webshells: `/c99`, `/r57`, `/alfa`, `/wso`
 
+## 🔄 Legacy Redirects
+
+If your site was migrated from PHP, ASP, or another platform, you might have old backlinks (from Wikipedia, blogs, etc.) pointing to legacy URLs like `/contact.php`. By default, PestControl would ban these legitimate visitors.
+
+Enable Legacy Redirects to handle them gracefully:
+
+```ruby
+PestControl.configure do |config|
+  config.legacy_redirects_enabled = true
+  config.legacy_extensions = %w[php xml asp]
+
+  # Custom mappings (optional, takes priority)
+  config.legacy_mappings = {
+    "/periode3.php" => "/periode-3",
+    "/feed.xml"     => "/rss"
+  }
+
+  # Auto-strip extension: /contact.php → /contact (default: true)
+  config.legacy_strip_extension = true
+
+  # Allow 5 visits on unmapped URLs before banning (default: 5)
+  config.legacy_tolerance = 5
+
+  # Log redirects as trap records (default: false)
+  config.legacy_log_redirects = false
+end
+```
+
+### How It Works
+
+```
+GET /contact.php arrives
+         │
+         ▼
+  ┌──────────────────────────┐
+  │ Extension in legacy list?│
+  └───────────┬──────────────┘
+              │
+      ┌───────┴───────┐
+      NO              YES
+      │               │
+      ▼               ▼
+   Normal         ┌─────────────────┐
+   PestControl    │ Custom mapping? │
+   (ban)          └────────┬────────┘
+                           │
+                   ┌───────┴───────┐
+                   YES             NO
+                   │               │
+                   ▼               ▼
+               301 to          Strip extension
+               mapping         301 → /contact
+```
+
+### Behavior Summary
+
+| Request | Result |
+|---------|--------|
+| `GET /periode3.php` (mapped) | 301 → `/periode-3` |
+| `GET /contact.php` (strip enabled) | 301 → `/contact` |
+| `GET /unknown.php` (visits 1-5) | 404 (no ban) |
+| `GET /unknown.php` (visit 6+) | Ban |
+| `POST /contact.php` | Ban (only GET is tolerated) |
+| `GET /wp-login.php` (not in legacy_extensions) | Normal PestControl behavior |
+
 ## 🧪 Memory Mode (Dashboard)
 
 Want to analyze your pest collection? Enable Memory Mode to persist trap records and access a beautiful dashboard.

@@ -170,4 +170,32 @@ PestControl.configure do |config|
 
   # To clean up expired records, run periodically (e.g., via a cron job):
   #   PestControl::TrapRecord.cleanup_expired!
+
+  # ============================================================================
+  # LEGACY REDIRECTS
+  # ============================================================================
+  # If your site was migrated from PHP/ASP/etc, you may have old backlinks
+  # pointing to legacy URLs. Enable this to redirect them instead of banning.
+
+  # Enable legacy URL handling (default: false)
+  # config.legacy_redirects_enabled = true
+
+  # File extensions to treat as legacy URLs (default: [])
+  # config.legacy_extensions = %w[php xml asp aspx jsp]
+
+  # Custom path mappings - takes priority over auto-strip (default: {})
+  # config.legacy_mappings = {
+  #   "/periode3.php" => "/periode-3",
+  #   "/feed.xml"     => "/rss"
+  # }
+
+  # Auto-strip extension and redirect: /foo.php → /foo (default: true)
+  # config.legacy_strip_extension = true
+
+  # Number of allowed GET visits on unmapped legacy URLs before ban (default: 5)
+  # POST/PUT/DELETE requests are always banned immediately
+  # config.legacy_tolerance = 5
+
+  # Log legacy redirect attempts as trap records (default: false)
+  # config.legacy_log_redirects = false
 end
