@@ -112,9 +112,5 @@ module PestControl
       render plain: '🧠 Memory Mode is not enabled. Run `rails generate pest_control:memory` first.',
              status: :service_unavailable
     end
-
-    def lab_path
-      PestControl.dashboard_path
-    end
   end
 end

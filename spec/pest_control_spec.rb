@@ -181,17 +181,6 @@ RSpec.describe PestControl do # rubocop:disable Metrics/BlockLength
         expect(PestControl.memory_enabled?).to be true
       end
     end
-
-    describe '.dashboard_path' do
-      it 'returns default path' do
-        expect(PestControl.dashboard_path).to eq('/pest-control/lab')
-      end
-
-      it 'returns custom path when configured' do
-        PestControl.configuration.dashboard_path = '/admin/pest-lab'
-        expect(PestControl.dashboard_path).to eq('/admin/pest-lab')
-      end
-    end
   end
 
   describe '.notify_bot_trapped' do
