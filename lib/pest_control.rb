@@ -65,10 +65,6 @@ module PestControl
       configuration.memory_enabled
     end
 
-    def dashboard_path
-      configuration.dashboard_path
-    end
-
     def ban_ip!(ip, reason = "wordpress_scan")
       return unless banning_enabled?
 

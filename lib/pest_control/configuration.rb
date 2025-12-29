@@ -148,9 +148,6 @@ module PestControl
     # Requires running: rails generate pest_control:memory
     attr_accessor :memory_enabled
 
-    # Dashboard route path (default: "/pest-control/lab")
-    attr_accessor :dashboard_path
-
     # Dashboard authentication - HTTP Basic Auth credentials
     # If dashboard_auth lambda is set, these are ignored
     attr_accessor :dashboard_username
@@ -219,7 +216,6 @@ module PestControl
 
       # Memory mode
       @memory_enabled = false
-      @dashboard_path = '/pest-control/lab'
       @dashboard_username = nil
       @dashboard_password = nil
       @dashboard_auth = nil

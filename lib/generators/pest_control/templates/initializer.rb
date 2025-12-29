@@ -156,9 +156,6 @@ PestControl.configure do |config|
   # Enable database persistence (default: false)
   # config.memory_enabled = false
 
-  # Dashboard route path (default: "/pest-control/lab")
-  # config.dashboard_path = "/pest-control/lab"
-
   # Dashboard authentication - Option 1: HTTP Basic Auth
   # config.dashboard_username = "admin"
   # config.dashboard_password = ENV["PEST_CONTROL_DASHBOARD_PASSWORD"]

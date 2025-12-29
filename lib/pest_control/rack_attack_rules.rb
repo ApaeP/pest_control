@@ -15,6 +15,8 @@ module PestControl
 
       def configure_blocklist
         Rack::Attack.blocklist('pest_control/banned_ips') do |req|
+          next false if pest_control_route?(req.path)
+
           if PestControl.banned?(req.ip)
             PestControl.log(:warn, "[PEST_CONTROL] 🚫 BLOCKED (banned IP): #{req.ip} -> #{req.path}")
 
@@ -27,6 +29,10 @@ module PestControl
             false
           end
         end
+      end
+
+      def pest_control_route?(path)
+        path.start_with?('/pest-control/') || path == '/pest-control'
       end
 
       def capture_credentials_from_banned_ip(req)
