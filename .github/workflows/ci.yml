@@ -43,14 +43,19 @@ jobs:
       - name: Run tests
         run: bundle exec rspec --format progress
 
-      - name: Upload coverage
-        if: matrix.ruby == '3.4' && matrix.rails == '8.1' && success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage/
+      - name: Run tests with coverage
+        if: matrix.ruby == '3.4' && matrix.rails == '8.1'
+        run: bundle exec rspec --format progress
         env:
           COVERAGE: "true"
+
+      - name: Upload coverage to Codecov
+        if: matrix.ruby == '3.4' && matrix.rails == '8.1'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/.resultset.json
+          fail_ci_if_error: false
 
   lint:
     runs-on: ubuntu-latest

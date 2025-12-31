@@ -12,8 +12,8 @@ if ENV.fetch("COVERAGE", nil)
     add_group "Helpers", "app/helpers"
     add_group "Lib", "lib"
 
-    minimum_coverage 60
-    minimum_coverage_by_file 20
+    minimum_coverage 80
+    minimum_coverage_by_file 40
   end
 end
 

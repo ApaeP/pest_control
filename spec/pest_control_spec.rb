@@ -286,4 +286,206 @@ RSpec.describe PestControl do
       end
     end
   end
+
+  describe "concurrency control" do
+    describe ".acquire_stream_slot!" do
+      before do
+        described_class.configuration.max_concurrent_streams = 2
+        Rails.cache.delete(described_class.send(:active_streams_key))
+      end
+
+      it "acquires a slot when available" do
+        expect(described_class.acquire_stream_slot!).to be true
+        expect(described_class.active_streams_count).to eq(1)
+      end
+
+      it "returns false when slots are full" do
+        described_class.configuration.max_concurrent_streams = 1
+        described_class.acquire_stream_slot!
+
+        expect(described_class.acquire_stream_slot!).to be false
+      end
+    end
+
+    describe ".release_stream_slot!" do
+      before do
+        described_class.configuration.max_concurrent_streams = 5
+        Rails.cache.delete(described_class.send(:active_streams_key))
+      end
+
+      it "releases a slot" do
+        described_class.acquire_stream_slot!
+        expect(described_class.active_streams_count).to eq(1)
+
+        described_class.release_stream_slot!
+        expect(described_class.active_streams_count).to eq(0)
+      end
+
+      it "does not go below zero" do
+        described_class.release_stream_slot!
+        expect(described_class.active_streams_count).to eq(0)
+      end
+    end
+
+    describe ".max_streams_reached?" do
+      it "returns true when at capacity" do
+        described_class.configuration.max_concurrent_streams = 1
+        Rails.cache.delete(described_class.send(:active_streams_key))
+        described_class.acquire_stream_slot!
+
+        expect(described_class.max_streams_reached?).to be true
+      end
+
+      it "returns false when below capacity" do
+        described_class.configuration.max_concurrent_streams = 5
+        Rails.cache.delete(described_class.send(:active_streams_key))
+
+        expect(described_class.max_streams_reached?).to be false
+      end
+    end
+
+    describe ".acquire_tarpit_slot!" do
+      before do
+        described_class.configuration.max_concurrent_tarpits = 3
+        Rails.cache.delete(described_class.send(:active_tarpits_key))
+      end
+
+      it "acquires a tarpit slot when available" do
+        expect(described_class.acquire_tarpit_slot!).to be true
+        expect(described_class.active_tarpits_count).to eq(1)
+      end
+
+      it "returns false when tarpit slots are full" do
+        described_class.configuration.max_concurrent_tarpits = 1
+        described_class.acquire_tarpit_slot!
+
+        expect(described_class.acquire_tarpit_slot!).to be false
+      end
+    end
+
+    describe ".release_tarpit_slot!" do
+      before do
+        described_class.configuration.max_concurrent_tarpits = 5
+        Rails.cache.delete(described_class.send(:active_tarpits_key))
+      end
+
+      it "releases a tarpit slot" do
+        described_class.acquire_tarpit_slot!
+        described_class.release_tarpit_slot!
+
+        expect(described_class.active_tarpits_count).to eq(0)
+      end
+    end
+  end
+
+  describe ".notify_endless_stream_start" do
+    it "calls on_endless_stream_start callback" do
+      callback_data = nil
+      described_class.configuration.on_endless_stream_start = ->(ip, count) {
+        callback_data = { ip: ip, count: count }
+      }
+
+      described_class.notify_endless_stream_start("1.2.3.4", 5)
+
+      expect(callback_data[:ip]).to eq("1.2.3.4")
+      expect(callback_data[:count]).to eq(5)
+    end
+
+    it "emits stream_start metric" do
+      metrics_data = nil
+      described_class.configuration.on_metrics = ->(data) { metrics_data = data }
+
+      described_class.notify_endless_stream_start("1.2.3.4", 5)
+
+      expect(metrics_data[:event]).to eq(:stream_start)
+    end
+  end
+
+  describe ".notify_bot_crashed" do
+    it "calls on_bot_crashed callback" do
+      callback_data = nil
+      described_class.configuration.on_bot_crashed = ->(ip, chunks, error) {
+        callback_data = { ip: ip, chunks: chunks, error: error }
+      }
+
+      error = IOError.new("Connection reset")
+      described_class.notify_bot_crashed("1.2.3.4", 100, error)
+
+      expect(callback_data[:ip]).to eq("1.2.3.4")
+      expect(callback_data[:chunks]).to eq(100)
+    end
+
+    it "logs the crash" do
+      expect(described_class).to receive(:log).with(:warn, anything)
+
+      described_class.notify_bot_crashed("1.2.3.4", 100, IOError.new("test"))
+    end
+  end
+
+  describe "helper methods" do
+    describe ".tarpit_enabled?" do
+      it "returns configuration value" do
+        described_class.configuration.tarpit_enabled = true
+        expect(described_class.tarpit_enabled?).to be true
+
+        described_class.configuration.tarpit_enabled = false
+        expect(described_class.tarpit_enabled?).to be false
+      end
+    end
+
+    describe ".capture_credentials?" do
+      it "returns configuration value" do
+        described_class.configuration.capture_credentials = true
+        expect(described_class.capture_credentials?).to be true
+
+        described_class.configuration.capture_credentials = false
+        expect(described_class.capture_credentials?).to be false
+      end
+    end
+
+    describe ".fingerprinting_enabled?" do
+      it "returns configuration value" do
+        described_class.configuration.fingerprinting_enabled = true
+        expect(described_class.fingerprinting_enabled?).to be true
+
+        described_class.configuration.fingerprinting_enabled = false
+        expect(described_class.fingerprinting_enabled?).to be false
+      end
+    end
+
+    describe ".dry_run?" do
+      it "returns configuration value" do
+        described_class.configuration.dry_run = true
+        expect(described_class.dry_run?).to be true
+
+        described_class.configuration.dry_run = false
+        expect(described_class.dry_run?).to be false
+      end
+    end
+  end
+
+  describe ".log" do
+    it "logs to configured logger" do
+      logger = double("Logger")
+      described_class.configuration.logger = logger
+
+      expect(logger).to receive(:warn).with("test message")
+      described_class.log(:warn, "test message")
+    end
+
+    it "respects log level" do
+      described_class.configuration.log_level = :error
+      logger = double("Logger")
+      described_class.configuration.logger = logger
+
+      expect(logger).not_to receive(:info)
+      described_class.log(:info, "should not log")
+    end
+  end
+
+  describe ".cache" do
+    it "returns configured cache" do
+      expect(described_class.cache).to eq(Rails.cache)
+    end
+  end
 end

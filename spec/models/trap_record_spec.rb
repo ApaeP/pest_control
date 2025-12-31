@@ -182,4 +182,59 @@ RSpec.describe PestControl::TrapRecord, type: :model do
       expect(described_class.search(nil).count).to eq(2)
     end
   end
+
+  describe ".expired" do
+    before do
+      PestControl.configuration.trap_records_retention = 1.year
+    end
+
+    it "returns records older than retention period" do
+      old_record = described_class.create!(ip: "1.1.1.1", trap_type: :fake_login_view, created_at: 2.years.ago)
+      new_record = described_class.create!(ip: "2.2.2.2", trap_type: :fake_login_view, created_at: 1.day.ago)
+
+      expired = described_class.expired
+      expect(expired).to include(old_record)
+      expect(expired).not_to include(new_record)
+    end
+
+    it "returns empty when retention is nil" do
+      PestControl.configuration.trap_records_retention = nil
+      described_class.create!(ip: "1.1.1.1", trap_type: :fake_login_view, created_at: 10.years.ago)
+
+      expect(described_class.expired).to be_empty
+    end
+  end
+
+  describe ".cleanup_expired!" do
+    before do
+      PestControl.configuration.trap_records_retention = 1.year
+    end
+
+    it "deletes expired records" do
+      described_class.create!(ip: "1.1.1.1", trap_type: :fake_login_view, created_at: 2.years.ago)
+      described_class.create!(ip: "2.2.2.2", trap_type: :fake_login_view, created_at: 1.day.ago)
+
+      expect { described_class.cleanup_expired! }.to change(described_class, :count).by(-1)
+    end
+
+    it "returns count of deleted records" do
+      described_class.create!(ip: "1.1.1.1", trap_type: :fake_login_view, created_at: 2.years.ago)
+      described_class.create!(ip: "2.2.2.2", trap_type: :fake_login_view, created_at: 3.years.ago)
+
+      result = described_class.cleanup_expired!
+      expect(result).to eq(2)
+    end
+  end
+
+  describe "legacy trap types" do
+    it "supports legacy_redirect type" do
+      record = described_class.create!(ip: "1.1.1.1", trap_type: :legacy_redirect)
+      expect(record.trap_type).to eq("legacy_redirect")
+    end
+
+    it "supports legacy_tolerated type" do
+      record = described_class.create!(ip: "1.1.1.1", trap_type: :legacy_tolerated)
+      expect(record.trap_type).to eq("legacy_tolerated")
+    end
+  end
 end
