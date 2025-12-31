@@ -42,12 +42,8 @@ jobs:
 
       - name: Run tests
         run: bundle exec rspec --format progress
-
-      - name: Run tests with coverage
-        if: matrix.ruby == '3.4' && matrix.rails == '8.1'
-        run: bundle exec rspec --format progress
         env:
-          COVERAGE: "true"
+          COVERAGE: ${{ matrix.ruby == '3.4' && matrix.rails == '8.1' && 'true' || '' }}
 
       - name: Upload coverage to Codecov
         if: matrix.ruby == '3.4' && matrix.rails == '8.1'
