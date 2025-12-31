@@ -23,7 +23,6 @@ RSpec.describe PestControl do # rubocop:disable Metrics/BlockLength
         PestControl.ban_ip!(ip, 'test_reason')
 
         expect(PestControl.banned?(ip)).to be true
-        expect(PestControl.banned_ips[ip][:reason]).to eq('test_reason')
       end
 
       it 'does not ban when banning is disabled' do
@@ -59,8 +58,13 @@ RSpec.describe PestControl do # rubocop:disable Metrics/BlockLength
       end
 
       it 'returns false for expired bans' do
-        PestControl.configuration.ban_duration = -1.second # Already expired
-        PestControl.ban_ip!(ip, 'test')
+        ban_key = "#{PestControl.configuration.cache_key_prefix}:ban:#{ip}"
+        expired_ban = {
+          banned_at: 2.days.ago.iso8601,
+          reason: 'test',
+          expires_at: 1.day.ago.iso8601
+        }
+        Rails.cache.write(ban_key, expired_ban)
 
         expect(PestControl.banned?(ip)).to be false
       end
@@ -77,13 +81,25 @@ RSpec.describe PestControl do # rubocop:disable Metrics/BlockLength
     end
 
     describe '.clear_all_bans!' do
-      it 'removes all banned IPs' do
-        PestControl.ban_ip!('1.1.1.1', 'test')
-        PestControl.ban_ip!('2.2.2.2', 'test')
+      it 'clears all bans and logs success' do
+        PestControl.ban_ip!(ip, 'test')
+        expect(PestControl.banned?(ip)).to be true
 
+        expect(PestControl).to receive(:log).with(:info, /All bans cleared/)
         PestControl.clear_all_bans!
 
-        expect(PestControl.banned_ips).to be_empty
+        expect(PestControl.banned?(ip)).to be false
+      end
+    end
+
+    describe '.banned_ips' do
+      it 'returns a hash of all banned IPs' do
+        PestControl.ban_ip!('1.1.1.1', 'reason1')
+        PestControl.ban_ip!('2.2.2.2', 'reason2')
+
+        result = PestControl.banned_ips
+        expect(result.keys).to contain_exactly('1.1.1.1', '2.2.2.2')
+        expect(result['1.1.1.1'][:reason]).to eq('reason1')
       end
     end
   end
@@ -180,6 +196,57 @@ RSpec.describe PestControl do # rubocop:disable Metrics/BlockLength
         PestControl.configuration.memory_enabled = true
         expect(PestControl.memory_enabled?).to be true
       end
+    end
+  end
+
+  describe 'dry run mode' do
+    let(:ip) { '192.168.1.100' }
+
+    before do
+      PestControl.configuration.dry_run = true
+      PestControl.configuration.banning_enabled = true
+    end
+
+    it 'does not ban IPs when dry_run is enabled' do
+      PestControl.ban_ip!(ip, 'test_reason')
+
+      expect(PestControl.banned?(ip)).to be false
+    end
+
+    it 'logs the would-be ban' do
+      expect(PestControl).to receive(:log).with(:info, /DRY RUN/)
+
+      PestControl.ban_ip!(ip, 'test_reason')
+    end
+
+    it 'emits ban_skipped metric' do
+      metrics_data = nil
+      PestControl.configuration.on_metrics = ->(data) { metrics_data = data }
+
+      PestControl.ban_ip!(ip, 'test_reason')
+
+      expect(metrics_data[:event]).to eq(:ban_skipped)
+    end
+  end
+
+  describe 'metrics callbacks' do
+    it 'calls on_metrics when a bot is trapped' do
+      metrics_data = nil
+      PestControl.configuration.on_metrics = ->(data) { metrics_data = data }
+
+      PestControl.notify_bot_trapped(ip: '1.2.3.4', type: 'FAKE_LOGIN_VIEW')
+
+      expect(metrics_data[:event]).to eq(:trap)
+      expect(metrics_data[:ip]).to eq('1.2.3.4')
+    end
+
+    it 'calls on_metrics when an IP is banned' do
+      metrics_data = nil
+      PestControl.configuration.on_metrics = ->(data) { metrics_data = data }
+
+      PestControl.ban_ip!('1.2.3.4', 'test')
+
+      expect(metrics_data[:event]).to eq(:ban)
     end
   end
 
