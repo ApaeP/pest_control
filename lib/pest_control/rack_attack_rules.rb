@@ -14,15 +14,13 @@ module PestControl
       private
 
       def configure_blocklist
-        Rack::Attack.blocklist('pest_control/banned_ips') do |req|
+        Rack::Attack.blocklist("pest_control/banned_ips") do |req|
           next false if pest_control_route?(req.path)
 
           if PestControl.banned?(req.ip)
             PestControl.log(:warn, "[PEST_CONTROL] 🚫 BLOCKED (banned IP): #{req.ip} -> #{req.path}")
 
-            if req.post? && PestControl.memory_enabled?
-              capture_credentials_from_banned_ip(req)
-            end
+            capture_credentials_from_banned_ip(req) if req.post? && PestControl.memory_enabled?
 
             true
           else
@@ -32,19 +30,23 @@ module PestControl
       end
 
       def pest_control_route?(path)
-        path.start_with?('/pest-control/') || path == '/pest-control'
+        path.start_with?("/pest-control/") || path == "/pest-control"
       end
 
       def capture_credentials_from_banned_ip(req)
-        params = req.params rescue {}
-        username = params['log'] || params['username'] || params['user'] || params['email']
-        password = params['pwd'] || params['password'] || params['pass']
+        params = begin
+          req.params
+        rescue StandardError
+          {}
+        end
+        username = params["log"] || params["username"] || params["user"] || params["email"]
+        password = params["pwd"] || params["password"] || params["pass"]
 
         return unless username.present? || password.present?
 
         trap_data = {
           ip: req.ip,
-          type: 'CREDENTIAL_CAPTURE_BLOCKED',
+          type: "CREDENTIAL_CAPTURE_BLOCKED",
           path: req.path,
           method: req.request_method,
           user_agent: req.user_agent,
@@ -53,9 +55,9 @@ module PestControl
           credentials: {
             username: username,
             password: password,
-            raw_params: params.except('controller', 'action')
+            raw_params: params.except("controller", "action"),
           },
-          visit_count: PestControl.get_visit_count(req.ip)
+          visit_count: PestControl.get_visit_count(req.ip),
         }
 
         PestControl.log(:warn, "[PEST_CONTROL] 🔑 CREDENTIALS CAPTURED (banned IP still trying): #{req.ip}")
@@ -65,7 +67,7 @@ module PestControl
       end
 
       def configure_throttles
-        Rack::Attack.throttle('pest_control/suspicious_ua', limit: 10, period: 1.minute) do |req|
+        Rack::Attack.throttle("pest_control/suspicious_ua", limit: 10, period: 1.minute) do |req|
           user_agent = req.user_agent.to_s
           patterns = PestControl.configuration.suspicious_user_agents
 
@@ -79,7 +81,7 @@ module PestControl
       def configure_responses
         config = PestControl.configuration
 
-        Rack::Attack.blocklisted_responder = lambda do |env|
+        Rack::Attack.blocklisted_responder = ->(env) do
           env_hash = env.respond_to?(:env) ? env.env : env
           request = Rack::Request.new(env_hash)
 
@@ -94,21 +96,21 @@ module PestControl
           [
             403,
             {
-              'Content-Type' => 'text/html',
-              'X-Robots-Tag' => 'noindex, nofollow',
-              'Cache-Control' => 'no-store'
+              "Content-Type" => "text/html",
+              "X-Robots-Tag" => "noindex, nofollow",
+              "Cache-Control" => "no-store",
             },
-            [html]
+            [html],
           ]
         end
 
-        Rack::Attack.throttled_responder = lambda do |env|
+        Rack::Attack.throttled_responder = ->(env) do
           env_hash = env.respond_to?(:env) ? env.env : env
-          retry_after = (env_hash['rack.attack.match_data'] || {})[:period]
+          retry_after = (env_hash["rack.attack.match_data"] || {})[:period]
           [
             429,
-            { 'Content-Type' => 'text/plain', 'Retry-After' => retry_after.to_s },
-            ["Rate limit exceeded. Retry later.\n"]
+            { "Content-Type" => "text/plain", "Retry-After" => retry_after.to_s },
+            ["Rate limit exceeded. Retry later.\n"],
           ]
         end
       end

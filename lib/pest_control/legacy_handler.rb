@@ -15,8 +15,6 @@ module PestControl
         elsif within_tolerance?(request.remote_ip)
           log_tolerated(request) if config.legacy_log_redirects
           { action: :not_found }
-        else
-          nil
         end
       end
 
@@ -25,7 +23,7 @@ module PestControl
       end
 
       def legacy_extension?(path)
-        extension = File.extname(path).delete_prefix('.').downcase
+        extension = File.extname(path).delete_prefix(".").downcase
         config.legacy_extensions.map(&:downcase).include?(extension)
       end
 
@@ -37,7 +35,7 @@ module PestControl
           %r{^/wp-includes}i,
           %r{^/xmlrpc}i,
           %r{^/phpmyadmin}i,
-          %r{^/phpMyAdmin}i
+          %r{^/phpMyAdmin}i,
         ].any? { |pattern| path.match?(pattern) }
       end
 
@@ -45,7 +43,7 @@ module PestControl
         if config.legacy_mappings.key?(path)
           config.legacy_mappings[path]
         elsif config.legacy_strip_extension
-          path.sub(/\.[^.]+\z/, '')
+          path.sub(/\.[^.]+\z/, "")
         end
       end
 
@@ -76,13 +74,13 @@ module PestControl
       end
 
       def log_redirect(request, redirect_path)
-        data = build_log_data(request, 'LEGACY_REDIRECT', redirect_path: redirect_path)
+        data = build_log_data(request, "LEGACY_REDIRECT", redirect_path: redirect_path)
         record_trap(data)
       end
 
       def log_tolerated(request)
         visit_count = get_legacy_visit_count(request.remote_ip)
-        data = build_log_data(request, 'LEGACY_TOLERATED', visit_count: visit_count)
+        data = build_log_data(request, "LEGACY_TOLERATED", visit_count: visit_count)
         record_trap(data)
       end
 
@@ -95,7 +93,7 @@ module PestControl
           method: request.request_method,
           user_agent: request.user_agent,
           referer: request.referer,
-          host: request.host
+          host: request.host,
         }.merge(extra)
       end
 

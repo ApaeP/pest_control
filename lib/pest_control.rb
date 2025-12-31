@@ -31,8 +31,8 @@ module PestControl
 
       case configuration.log_level
       when :debug then logger.send(level, message)
-      when :info then logger.send(level, message) if %i[info warn error].include?(level)
-      when :warn then logger.send(level, message) if %i[warn error].include?(level)
+      when :info then logger.send(level, message) if [:info, :warn, :error].include?(level)
+      when :warn then logger.send(level, message) if [:warn, :error].include?(level)
       when :error then logger.send(level, message) if level == :error
       else logger.send(level, message)
       end
@@ -82,7 +82,7 @@ module PestControl
       ban_data = {
         banned_at: Time.current.iso8601,
         reason: reason,
-        expires_at: (Time.current + configuration.ban_duration).iso8601
+        expires_at: (Time.current + configuration.ban_duration).iso8601,
       }
 
       cache.write(ban_key(ip), ban_data, expires_in: configuration.ban_duration)
@@ -101,7 +101,7 @@ module PestControl
       ban_data = cache.read(ban_key(ip))
       return false unless ban_data
 
-      expires_at = Time.parse(ban_data[:expires_at])
+      expires_at = Time.zone.parse(ban_data[:expires_at])
       if expires_at < Time.current
         cache.delete(ban_key(ip))
         false
@@ -116,9 +116,7 @@ module PestControl
 
       index.each do |ip|
         ban_data = cache.read(ban_key(ip))
-        if ban_data && Time.parse(ban_data[:expires_at]) > Time.current
-          result[ip] = ban_data
-        end
+        result[ip] = ban_data if ban_data && Time.zone.parse(ban_data[:expires_at]) > Time.current
       end
 
       cleanup_ban_index(result.keys) if result.size < index.size
@@ -228,13 +226,11 @@ module PestControl
       configuration.on_bot_trapped&.call(data)
       emit_metrics(event: :trap, ip: data[:ip], type: data[:type])
 
-      if memory_enabled?
-        TrapRecord.record_from_trap_data(data)
-      end
+      TrapRecord.record_from_trap_data(data) if memory_enabled?
 
-      if sentry_enabled?
-        Sentry.capture_message("[PEST_CONTROL] Bot trapped: #{data[:type]}", level: :warning, extra: data)
-      end
+      return unless sentry_enabled?
+
+      Sentry.capture_message("[PEST_CONTROL] Bot trapped: #{data[:type]}", level: :warning, extra: data)
     end
 
     def notify_endless_stream_start(ip, visit_count)

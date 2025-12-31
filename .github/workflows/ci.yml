@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.2", "3.3", "3.4"]
+        rails: ["7.0", "7.1", "7.2", "8.0", "8.1"]
+        include:
+          # Ruby 4.0 is brand new (Dec 2025) - test as experimental
+          - ruby: "4.0"
+            rails: "8.1"
+            experimental: true
+          # Test Rails edge with latest stable Ruby
+          - ruby: "3.4"
+            rails: "edge"
+            experimental: true
+        exclude:
+          # Rails 7.0 doesn't support Ruby 3.4 well
+          - ruby: "3.4"
+            rails: "7.0"
+
+    name: Ruby ${{ matrix.ruby }} / Rails ${{ matrix.rails }}
+    continue-on-error: ${{ matrix.experimental || false }}
+
+    env:
+      RAILS_VERSION: ${{ matrix.rails }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby ${{ matrix.ruby }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Run tests
+        run: bundle exec rspec --format progress
+
+      - name: Upload coverage
+        if: matrix.ruby == '3.4' && matrix.rails == '8.1' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+        env:
+          COVERAGE: "true"
+
+  lint:
+    runs-on: ubuntu-latest
+    name: RuboCop
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Run RuboCop
+        run: bundle exec rubocop --parallel
+
+  security:
+    runs-on: ubuntu-latest
+    name: Security
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Run bundler-audit
+        run: |
+          gem install bundler-audit
+          bundle-audit check --update

@@ -232,7 +232,7 @@ module PestControl
 
       # Visit tracking
       @visit_count_ttl = 1.hour
-      @cache_key_prefix = 'pest_control'
+      @cache_key_prefix = "pest_control"
 
       # Logging
       @logger = nil
@@ -249,7 +249,7 @@ module PestControl
       @fingerprinting_enabled = true
 
       # Fake pages
-      @fake_site_name = 'WordPress'
+      @fake_site_name = "WordPress"
       @custom_blocked_html = nil
       @custom_login_html = nil
 
@@ -302,7 +302,7 @@ module PestControl
         /libwww-perl/i,
         /wget/i,
         /scrapy/i,
-        /bot(?!.*google|.*bing|.*yandex|.*duckduck)/i
+        /bot(?!.*google|.*bing|.*yandex|.*duckduck)/i,
       ]
     end
   end

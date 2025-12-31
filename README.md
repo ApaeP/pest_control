@@ -1,5 +1,10 @@
 # 🍯 PestControl
 
+[![CI](https://github.com/ApaeP/pest_control/actions/workflows/ci.yml/badge.svg)](https://github.com/ApaeP/pest_control/actions/workflows/ci.yml)
+[![Ruby](https://img.shields.io/badge/ruby-3.4-CC342D.svg?logo=ruby)](https://www.ruby-lang.org/)
+[![Rails](https://img.shields.io/badge/rails-8.1-D30001.svg?logo=rubyonrails)](https://rubyonrails.org/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](MIT-LICENSE)
+
 A configurable Rails gem to trap bots scanning your site for WordPress/PHP vulnerabilities.
 
 ## Why This Exists (A Rant)
