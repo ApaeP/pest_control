@@ -38,7 +38,7 @@ Does it spark joy? Yeah.
 
 ### ⚠️ Disclaimer
 
-This is `v0.0.1`. I built this in a fit of rage. It's not optimized, nor tested. It probably has bugs. But hey, it works on my machine™ 👨‍💻.
+This is `v0.0.1`. I built this in a fit of rage. It's not optimized, nor really tested for production. It probably has bugs. But hey, it works on my machine™ 👨‍💻.
 
 If you want to laugh at my code, improve it, or add more ways to mess with bots, **PRs are welcome**. Let's be chaotic together 😄.
 

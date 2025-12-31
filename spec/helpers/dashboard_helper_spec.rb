@@ -18,7 +18,7 @@ RSpec.describe PestControl::DashboardHelper, type: :helper do
   end
 
   describe "#trap_type_badge" do
-    let(:record) { double("Record", trap_type: "fake_login_view") }
+    let(:record) { instance_double(PestControl::TrapRecord, trap_type: "fake_login_view") }
 
     it "renders badge for record" do
       result = helper.trap_type_badge(record)
@@ -78,13 +78,13 @@ RSpec.describe PestControl::DashboardHelper, type: :helper do
 
   describe "#credentials_badge" do
     it "returns key emoji when credentials present" do
-      record = double("Record", credentials: { username: "test" })
+      record = instance_double(PestControl::TrapRecord, credentials: { username: "test" })
       result = helper.credentials_badge(record)
       expect(result).to include("🔑")
     end
 
     it "returns dash when no credentials" do
-      record = double("Record", credentials: nil)
+      record = instance_double(PestControl::TrapRecord, credentials: nil)
       result = helper.credentials_badge(record)
       expect(result).to include("—")
     end
@@ -117,12 +117,9 @@ RSpec.describe PestControl::DashboardHelper, type: :helper do
 
   describe "#pagination" do
     before do
-      allow(helper).to receive(:request).and_return(
-        double(query_parameters: { page: 1 })
-      )
-      allow(helper).to receive(:pest_control).and_return(
-        double(pest_control_records_path: "/pest-control/records")
-      )
+      mock_request = Struct.new(:query_parameters).new({ page: 1 })
+      mock_engine = Struct.new(:pest_control_records_path).new("/pest-control/records")
+      allow(helper).to receive_messages(request: mock_request, pest_control: mock_engine)
     end
 
     it "returns nil for single page" do
@@ -139,12 +136,9 @@ RSpec.describe PestControl::DashboardHelper, type: :helper do
 
   describe "#filter_tag" do
     before do
-      allow(helper).to receive(:request).and_return(
-        double(query_parameters: { type: "test", page: 1 })
-      )
-      allow(helper).to receive(:pest_control).and_return(
-        double(pest_control_records_path: "/pest-control/records")
-      )
+      mock_request = Struct.new(:query_parameters).new({ type: "test", page: 1 })
+      mock_engine = Struct.new(:pest_control_records_path).new("/pest-control/records")
+      allow(helper).to receive_messages(request: mock_request, pest_control: mock_engine)
     end
 
     it "renders filter tag with remove link" do

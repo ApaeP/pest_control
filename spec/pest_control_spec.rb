@@ -466,20 +466,22 @@ RSpec.describe PestControl do
 
   describe ".log" do
     it "logs to configured logger" do
-      logger = double("Logger")
+      logger = instance_double(Logger)
       described_class.configuration.logger = logger
 
-      expect(logger).to receive(:warn).with("test message")
+      allow(logger).to receive(:warn)
       described_class.log(:warn, "test message")
+      expect(logger).to have_received(:warn).with("test message")
     end
 
     it "respects log level" do
       described_class.configuration.log_level = :error
-      logger = double("Logger")
+      logger = instance_double(Logger)
       described_class.configuration.logger = logger
 
-      expect(logger).not_to receive(:info)
+      allow(logger).to receive(:info)
       described_class.log(:info, "should not log")
+      expect(logger).not_to have_received(:info)
     end
   end
 

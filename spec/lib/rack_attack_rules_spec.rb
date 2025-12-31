@@ -57,14 +57,14 @@ RSpec.describe PestControl::RackAttackRules do
 
     it "blocks banned IPs" do
       PestControl.ban_ip!("1.2.3.4", "test")
-      req = double("Request", ip: "1.2.3.4", path: "/some-path", post?: false)
+      req = Struct.new(:ip, :path, :post?).new("1.2.3.4", "/some-path", false)
 
       result = blocklist_proc.call(req)
       expect(result).to be true
     end
 
     it "does not block non-banned IPs" do
-      req = double("Request", ip: "5.6.7.8", path: "/some-path")
+      req = Struct.new(:ip, :path).new("5.6.7.8", "/some-path")
 
       result = blocklist_proc.call(req)
       expect(result).to be false
@@ -72,7 +72,7 @@ RSpec.describe PestControl::RackAttackRules do
 
     it "does not block pest-control routes" do
       PestControl.ban_ip!("1.2.3.4", "test")
-      req = double("Request", ip: "1.2.3.4", path: "/pest-control/lab")
+      req = Struct.new(:ip, :path).new("1.2.3.4", "/pest-control/lab")
 
       result = blocklist_proc.call(req)
       expect(result).to be false
@@ -80,7 +80,7 @@ RSpec.describe PestControl::RackAttackRules do
 
     it "does not block /pest-control exactly" do
       PestControl.ban_ip!("1.2.3.4", "test")
-      req = double("Request", ip: "1.2.3.4", path: "/pest-control")
+      req = Struct.new(:ip, :path).new("1.2.3.4", "/pest-control")
 
       result = blocklist_proc.call(req)
       expect(result).to be false
@@ -95,7 +95,7 @@ RSpec.describe PestControl::RackAttackRules do
 
     it "throttles suspicious user agents" do
       PestControl.configuration.suspicious_user_agents = [/curl/i, /wget/i]
-      req = double("Request", ip: "1.2.3.4", user_agent: "curl/7.64.1")
+      req = Struct.new(:ip, :user_agent).new("1.2.3.4", "curl/7.64.1")
 
       result = throttle_proc.call(req)
       expect(result).to eq("1.2.3.4")
@@ -103,7 +103,7 @@ RSpec.describe PestControl::RackAttackRules do
 
     it "does not throttle normal user agents" do
       PestControl.configuration.suspicious_user_agents = [/curl/i, /wget/i]
-      req = double("Request", ip: "1.2.3.4", user_agent: "Mozilla/5.0")
+      req = Struct.new(:ip, :user_agent).new("1.2.3.4", "Mozilla/5.0")
 
       result = throttle_proc.call(req)
       expect(result).to be_nil
@@ -158,7 +158,7 @@ RSpec.describe PestControl::RackAttackRules do
       env = {}
       responder = Rack::Attack.throttled_responder
 
-      status, headers, _ = responder.call(env)
+      status, headers, = responder.call(env)
 
       expect(status).to eq(429)
       expect(headers["Retry-After"]).to eq("")
@@ -177,33 +177,28 @@ RSpec.describe PestControl::RackAttackRules do
       PestControl.ban_ip!("1.2.3.4", "test")
 
       params_hash = { "log" => "admin", "pwd" => "secret" }
-      req = double("Request",
-                   ip: "1.2.3.4",
-                   path: "/wp-login.php",
-                   post?: true,
-                   request_method: "POST",
-                   user_agent: "Mozilla/5.0",
-                   referer: nil,
-                   host: "example.com",
-                   params: params_hash)
+      request_struct = Struct.new(:ip, :path, :post?, :request_method, :user_agent, :referer, :host, :params,
+                                  keyword_init: true)
+      req = request_struct.new(
+        ip: "1.2.3.4", path: "/wp-login.php", post?: true, request_method: "POST",
+        user_agent: "Mozilla/5.0", referer: nil, host: "example.com", params: params_hash
+      )
 
-      expect {
+      expect do
         blocklist_proc.call(req)
-      }.to change(PestControl::TrapRecord, :count).by(1)
+      end.to change(PestControl::TrapRecord, :count).by(1)
     end
 
     it "does not capture empty credentials" do
       PestControl.ban_ip!("1.2.3.4", "test")
 
-      req = double("Request",
-                   ip: "1.2.3.4",
-                   path: "/wp-login.php",
-                   post?: true,
-                   params: {})
+      req = Struct.new(:ip, :path, :post?, :params, keyword_init: true).new(
+        ip: "1.2.3.4", path: "/wp-login.php", post?: true, params: {}
+      )
 
-      expect {
+      expect do
         blocklist_proc.call(req)
-      }.not_to change(PestControl::TrapRecord, :count)
+      end.not_to change(PestControl::TrapRecord, :count)
     end
   end
 
@@ -219,12 +214,11 @@ RSpec.describe PestControl::RackAttackRules do
       env = { "REQUEST_METHOD" => "GET", "PATH_INFO" => "/test" }
       responder = Rack::Attack.blocklisted_responder
 
-      start_time = Time.now
+      start_time = Time.zone.now
       responder.call(env)
-      elapsed = Time.now - start_time
+      elapsed = Time.zone.now - start_time
 
       expect(elapsed).to be >= 0.001
     end
   end
 end
-

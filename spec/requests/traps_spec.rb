@@ -232,9 +232,9 @@ RSpec.describe "PestControl::TrapsController", type: :request do
     end
 
     it "applies tarpit delay" do
-      start_time = Time.now
+      start_time = Time.zone.now
       get "/wp-login.php"
-      elapsed = Time.now - start_time
+      elapsed = Time.zone.now - start_time
 
       expect(elapsed).to be >= 0.01
     end
@@ -288,9 +288,9 @@ RSpec.describe "PestControl::TrapsController", type: :request do
     end
 
     it "creates TrapRecord when memory is enabled" do
-      expect {
+      expect do
         get "/wp-login.php"
-      }.to change(PestControl::TrapRecord, :count).by(1)
+      end.to change(PestControl::TrapRecord, :count).by(1)
     end
 
     it "stores correct trap type" do
