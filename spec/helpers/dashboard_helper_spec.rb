@@ -118,7 +118,8 @@ RSpec.describe PestControl::DashboardHelper, type: :helper do
   describe "#pagination" do
     before do
       mock_request = Struct.new(:query_parameters).new({ page: 1 })
-      mock_engine = Struct.new(:pest_control_records_path).new("/pest-control/records")
+      mock_engine = Object.new
+      mock_engine.define_singleton_method(:pest_control_records_path) { |_params = {}| "/pest-control/records" }
       allow(helper).to receive_messages(request: mock_request, pest_control: mock_engine)
     end
 
@@ -137,7 +138,8 @@ RSpec.describe PestControl::DashboardHelper, type: :helper do
   describe "#filter_tag" do
     before do
       mock_request = Struct.new(:query_parameters).new({ type: "test", page: 1 })
-      mock_engine = Struct.new(:pest_control_records_path).new("/pest-control/records")
+      mock_engine = Object.new
+      mock_engine.define_singleton_method(:pest_control_records_path) { |_params = {}| "/pest-control/records" }
       allow(helper).to receive_messages(request: mock_request, pest_control: mock_engine)
     end
 
