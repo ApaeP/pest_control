@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module PestControl
-  class DashboardController < ActionController::Base
+  class DashboardController < ApplicationController
     before_action :authenticate!
     before_action :ensure_memory_enabled
 
@@ -21,12 +21,12 @@ module PestControl
       @records = TrapRecord.recent
 
       case params[:filter]
-      when 'today'
+      when "today"
         @records = @records.today
-      when 'credentials'
+      when "credentials"
         @records = @records.with_credentials
-      when 'unique_ips'
-        @records = @records.select('DISTINCT ON (ip) *').reorder('ip, created_at DESC') if postgres?
+      when "unique_ips"
+        @records = @records.select("DISTINCT ON (ip) *").reorder("ip, created_at DESC") if postgres?
         @records = @records.group(:ip) unless postgres?
       end
 
@@ -73,20 +73,20 @@ module PestControl
     # POST /pest-control/lab/ban/:ip
     def ban
       ip = params[:ip]
-      PestControl.ban_ip!(ip, 'manual_ban_from_dashboard')
+      PestControl.ban_ip!(ip, "manual_ban_from_dashboard")
       redirect_to pest_control_lab_path, notice: "IP #{ip} has been banned!"
     end
 
     private
 
     def postgres?
-      ActiveRecord::Base.connection.adapter_name.downcase.include?('postgres')
+      ActiveRecord::Base.connection.adapter_name.downcase.include?("postgres")
     end
 
     def authenticate!
       if PestControl.configuration.dashboard_auth.present?
         unless PestControl.configuration.dashboard_auth.call(self)
-          render plain: '🚫 Access Denied - You shall not pass!', status: :forbidden
+          render plain: "🚫 Access Denied - You shall not pass!", status: :forbidden
         end
         return
       end
@@ -95,21 +95,21 @@ module PestControl
       password = PestControl.configuration.dashboard_password
 
       if username.present? && password.present?
-        authenticate_or_request_with_http_basic('Pest Control Lab') do |u, p|
+        authenticate_or_request_with_http_basic("Pest Control Lab") do |u, p|
           ActiveSupport::SecurityUtils.secure_compare(u, username) &&
             ActiveSupport::SecurityUtils.secure_compare(p, password)
         end
       elsif Rails.env.development?
-        Rails.logger.warn '[PEST_CONTROL] ⚠️  Dashboard accessed without authentication configured!'
+        Rails.logger.warn "[PEST_CONTROL] ⚠️  Dashboard accessed without authentication configured!"
       else
-        render plain: '🚫 Dashboard authentication not configured', status: :forbidden
+        render plain: "🚫 Dashboard authentication not configured", status: :forbidden
       end
     end
 
     def ensure_memory_enabled
       return if PestControl.memory_enabled?
 
-      render plain: '🧠 Memory Mode is not enabled. Run `rails generate pest_control:memory` first.',
+      render plain: "🧠 Memory Mode is not enabled. Run `rails generate pest_control:memory` first.",
              status: :service_unavailable
     end
   end

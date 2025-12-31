@@ -1,0 +1,189 @@
+# frozen_string_literal: true
+
+plugins:
+  - rubocop-rails
+  - rubocop-rspec
+
+AllCops:
+  TargetRubyVersion: 3.0
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - "bin/**/*"
+    - "spec/dummy/**/*"
+    - "vendor/**/*"
+    - "tmp/**/*"
+    - "log/**/*"
+
+# Layout
+Layout/LineLength:
+  Max: 120
+  AllowedPatterns:
+    - "^\\s*#"
+  Exclude:
+    - "app/controllers/**/*"
+    - "app/views/**/*"
+
+Layout/EmptyLinesAroundBlockBody:
+  Enabled: false
+
+Layout/EmptyLinesAroundClassBody:
+  Enabled: false
+
+Layout/EmptyLinesAroundModuleBody:
+  Enabled: false
+
+# Metrics - relaxed for this gem
+Metrics/AbcSize:
+  Max: 50
+  Exclude:
+    - "app/controllers/**/*"
+    - "lib/pest_control/configuration.rb"
+
+Metrics/MethodLength:
+  Max: 50
+  Exclude:
+    - "app/controllers/**/*"
+    - "lib/generators/**/*"
+    - "lib/pest_control/configuration.rb"
+
+Metrics/BlockLength:
+  Max: 35
+  Exclude:
+    - "spec/**/*"
+    - "*.gemspec"
+    - "lib/generators/**/*"
+    - "config/routes.rb"
+
+Metrics/ClassLength:
+  Max: 350
+
+Metrics/ModuleLength:
+  Max: 250
+
+Metrics/CyclomaticComplexity:
+  Max: 20
+
+Metrics/PerceivedComplexity:
+  Max: 20
+
+# Style
+Style/Documentation:
+  Enabled: false
+
+Style/FrozenStringLiteralComment:
+  Enabled: true
+  EnforcedStyle: always
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+Style/SymbolArray:
+  EnforcedStyle: brackets
+
+Style/WordArray:
+  EnforcedStyle: brackets
+
+Style/TrailingCommaInArrayLiteral:
+  EnforcedStyleForMultiline: consistent_comma
+
+Style/TrailingCommaInHashLiteral:
+  EnforcedStyleForMultiline: consistent_comma
+
+Style/ClassAndModuleChildren:
+  Enabled: false
+
+Style/Lambda:
+  EnforcedStyle: literal
+
+Style/NumericLiterals:
+  Enabled: false
+
+# Lint
+Lint/EmptyBlock:
+  Exclude:
+    - "lib/pest_control/engine.rb"
+
+Lint/UnusedMethodArgument:
+  Exclude:
+    - "app/helpers/**/*"
+
+Lint/UselessConstantScoping:
+  Enabled: false
+
+Lint/DuplicateBranch:
+  Enabled: false
+
+# Rails
+Rails/Output:
+  Exclude:
+    - "lib/generators/**/*"
+
+Rails/RakeEnvironment:
+  Enabled: false
+
+Rails/SkipsModelValidations:
+  Enabled: false
+
+Rails/I18nLocaleTexts:
+  Enabled: false
+
+Rails/OutputSafety:
+  Enabled: false
+
+# Naming
+Naming/PredicatePrefix:
+  Enabled: false
+
+Naming/PredicateMethod:
+  Enabled: false
+
+Naming/MethodParameterName:
+  AllowedNames:
+    - ip
+    - id
+    - to
+
+Naming/VariableNumber:
+  Enabled: false
+
+# RSpec
+RSpec/ExampleLength:
+  Max: 25
+
+RSpec/MultipleExpectations:
+  Max: 8
+
+RSpec/NestedGroups:
+  Max: 4
+
+RSpec/MultipleMemoizedHelpers:
+  Max: 10
+
+RSpec/DescribeClass:
+  Exclude:
+    - "spec/requests/**/*"
+
+RSpec/ContextWording:
+  Prefixes:
+    - when
+    - with
+    - without
+    - if
+    - for
+
+RSpec/BeforeAfterAll:
+  Enabled: false
+
+RSpec/MessageSpies:
+  Enabled: false
+
+RSpec/SpecFilePathFormat:
+  Enabled: false
+
+# Gemspec
+Gemspec/RequiredRubyVersion:
+  Enabled: false

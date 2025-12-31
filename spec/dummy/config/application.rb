@@ -15,8 +15,10 @@ module Dummy
     config.load_defaults Rails::VERSION::STRING.to_f
     config.eager_load = false
     config.cache_store = :memory_store
-    config.secret_key_base = 'test_secret_key_base_for_pest_control_specs'
-    config.root = File.expand_path('..', __dir__)
+    config.secret_key_base = "test_secret_key_base_for_pest_control_specs"
+    config.root = File.expand_path("..", __dir__)
     config.active_record.maintain_test_schema = false
+    config.consider_all_requests_local = true
+    config.action_dispatch.show_exceptions = :none
   end
 end

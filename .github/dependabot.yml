@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: "bundler"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      rubocop:
+        patterns:
+          - "rubocop*"
+      rails:
+        patterns:
+          - "rails"
+          - "activerecord"
+          - "actionpack"
+          - "activesupport"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module PestControl
-  class TrapsController < ActionController::Base
+  class TrapsController < ApplicationController
     include ActionController::Live
 
     skip_before_action :verify_authenticity_token
@@ -12,10 +12,10 @@ module PestControl
 
     # GET /wp-login.php
     def fake_login
-      log_bot_attempt('FAKE_LOGIN_VIEW')
+      log_bot_attempt("FAKE_LOGIN_VIEW")
 
       if PestControl.should_endless_stream?(request.remote_ip)
-        endless_stream_attack('fake_wordpress_page')
+        endless_stream_attack("fake_wordpress_page")
       else
         return unless apply_tarpit
 
@@ -32,28 +32,28 @@ module PestControl
           username: params[:log],
           password: params[:pwd],
           remember: params[:rememberme],
-          redirect_to: params[:redirect_to]
+          redirect_to: params[:redirect_to],
         }
       end
 
-      log_bot_attempt('CREDENTIAL_CAPTURE', extra)
+      log_bot_attempt("CREDENTIAL_CAPTURE", extra)
 
       if PestControl.should_endless_stream?(request.remote_ip)
-        endless_stream_attack('fake_wordpress_page')
+        endless_stream_attack("fake_wordpress_page")
       else
         return unless apply_tarpit(base_override: 5)
 
-        @error = 'ERROR: Invalid username or password.'
+        @error = "ERROR: Invalid username or password."
         render_login_page
       end
     end
 
     # GET /wp-admin/*
     def fake_admin
-      log_bot_attempt('FAKE_ADMIN_ACCESS')
+      log_bot_attempt("FAKE_ADMIN_ACCESS")
 
       if PestControl.should_endless_stream?(request.remote_ip)
-        endless_stream_attack('fake_admin_dashboard')
+        endless_stream_attack("fake_admin_dashboard")
       else
         return unless apply_tarpit
 
@@ -63,14 +63,14 @@ module PestControl
 
     # GET /*.php and other suspicious paths
     def catch_all
-      log_bot_attempt('CATCH_ALL')
+      log_bot_attempt("CATCH_ALL")
 
       if PestControl.should_endless_stream?(request.remote_ip)
-        endless_stream_attack('fake_404')
+        endless_stream_attack("fake_404")
       else
         return unless apply_tarpit(base_override: 1)
 
-        render plain: fake_apache_404, status: :not_found, content_type: 'text/html'
+        render plain: fake_apache_404, status: :not_found, content_type: "text/html"
       end
     end
 
@@ -79,12 +79,12 @@ module PestControl
       body_content = begin
         request.body.read
       rescue StandardError
-        ''
+        ""
       end
-      log_bot_attempt('XMLRPC_ATTACK', body: body_content.truncate(1000))
+      log_bot_attempt("XMLRPC_ATTACK", body: body_content.truncate(1000))
 
       if PestControl.should_endless_stream?(request.remote_ip)
-        endless_stream_attack('fake_xml')
+        endless_stream_attack("fake_xml")
       else
         return unless apply_tarpit(base_override: 3)
 
@@ -101,7 +101,7 @@ module PestControl
         store_fingerprint(request.remote_ip, fingerprint_data) if fingerprint_data
       end
 
-      send_data TRANSPARENT_GIF, type: 'image/gif', disposition: 'inline'
+      send_data TRANSPARENT_GIF, type: "image/gif", disposition: "inline"
     end
 
     private
@@ -122,13 +122,13 @@ module PestControl
 
       return unless PestControl.memory_enabled?
 
-      recent_record = TrapRecord.where(ip: ip).where('created_at > ?', 5.minutes.ago).order(created_at: :desc).first
+      recent_record = TrapRecord.where(ip: ip).where("created_at > ?", 5.minutes.ago).order(created_at: :desc).first
       recent_record&.update(fingerprint: data)
     end
 
-    RICKROLL_URL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    RICKROLL_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
-    def endless_stream_attack(type = 'html')
+    def endless_stream_attack(type = "html")
       unless PestControl.acquire_stream_slot!
         handle_overflow
         return
@@ -139,9 +139,9 @@ module PestControl
 
       config = PestControl.configuration
 
-      response.headers['Content-Type'] = content_type_for(type)
-      response.headers['Cache-Control'] = 'no-cache, no-store'
-      response.headers['X-Accel-Buffering'] = 'no'
+      response.headers["Content-Type"] = content_type_for(type)
+      response.headers["Cache-Control"] = "no-cache, no-store"
+      response.headers["X-Accel-Buffering"] = "no"
 
       response.stream.write(stream_header(type))
 
@@ -171,9 +171,9 @@ module PestControl
 
     def content_type_for(type)
       case type
-      when 'fake_xml' then 'application/xml'
-      when 'fake_json' then 'application/json'
-      else 'text/html'
+      when "fake_xml" then "application/xml"
+      when "fake_json" then "application/json"
+      else "text/html"
       end
     end
 
@@ -181,41 +181,40 @@ module PestControl
       site_name = PestControl.configuration.fake_site_name
 
       case type
-      when 'fake_wordpress_page'
+      when "fake_wordpress_page"
         <<~HTML
           <!DOCTYPE html>
           <html lang="en-US">
           <head><meta charset="UTF-8"><title>#{site_name} Dashboard</title></head>
           <body><h1>Loading #{site_name}...</h1><div id="content">
         HTML
-      when 'fake_admin_dashboard'
+      when "fake_admin_dashboard"
         <<~HTML
           <!DOCTYPE html>
           <html><head><title>Dashboard ‹ #{site_name}</title></head>
           <body class="wp-admin"><div id="wpwrap"><h1>Welcome to #{site_name}</h1>
         HTML
-      when 'fake_404'
+      when "fake_404"
         <<~HTML
           <!DOCTYPE HTML><html><head><title>Processing...</title></head>
           <body><h1>Please wait...</h1><div class="content">
         HTML
-      when 'fake_xml'
+      when "fake_xml"
         '<?xml version="1.0" encoding="UTF-8"?><response><status>processing</status><data>'
       else
-        '<html><body><div>'
+        "<html><body><div>"
       end
     end
 
     def generate_garbage_chunk(type, iteration, target_size)
-      words = %w[wordpress plugin theme update security cache optimize database query
-                 result loading processing content media attachment thumbnail gallery
-                 slider widget sidebar menu navigation header footer template]
+      words = ["wordpress", "plugin", "theme", "update", "security", "cache", "optimize", "database", "query",
+               "result", "loading", "processing", "content", "media", "attachment", "thumbnail", "gallery", "slider", "widget", "sidebar", "menu", "navigation", "header", "footer", "template",]
 
       case type
-      when 'fake_xml'
+      when "fake_xml"
         items = []
         while items.join.bytesize < target_size
-          items << "<item id=\"#{iteration * 20 + items.size}\"><value>#{words.sample(5).join(' ')}</value><data>#{SecureRandom.hex(32)}</data></item>\n"
+          items << "<item id=\"#{(iteration * 20) + items.size}\"><value>#{words.sample(5).join(" ")}</value><data>#{SecureRandom.hex(32)}</data></item>\n"
         end
         items.join
       else
@@ -223,7 +222,7 @@ module PestControl
         while chunks.join.bytesize < target_size
           chunks << <<~HTML
             <div class="wp-block-#{words.sample}" data-id="#{SecureRandom.hex(8)}">
-              <span>#{words.sample(4).join(' ')}</span>
+              <span>#{words.sample(4).join(" ")}</span>
               <input type="hidden" value="#{SecureRandom.hex(16)}">
             </div>
           HTML
@@ -263,9 +262,9 @@ module PestControl
       custom_html = PestControl.configuration.custom_login_html
 
       if custom_html
-        render html: custom_html.html_safe, content_type: 'text/html'
+        render html: custom_html.html_safe, content_type: "text/html"
       else
-        render :fake_login, content_type: 'text/html'
+        render :fake_login, content_type: "text/html"
       end
     end
 
@@ -285,7 +284,7 @@ module PestControl
         query_string: request.query_string,
         params: filtered_params,
         headers: extract_headers,
-        will_endless_stream: PestControl.should_endless_stream?(request.remote_ip)
+        will_endless_stream: PestControl.should_endless_stream?(request.remote_ip),
       }.merge(extra)
 
       PestControl.notify_bot_trapped(data)
@@ -298,9 +297,9 @@ module PestControl
     end
 
     def extract_headers
-      %w[X-Forwarded-For X-Real-IP CF-Connecting-IP Via Accept-Language Accept-Encoding
-         Cookie].each_with_object({}) do |header, hash|
-        key = "HTTP_#{header.upcase.tr('-', '_')}"
+      ["X-Forwarded-For", "X-Real-IP", "CF-Connecting-IP", "Via", "Accept-Language", "Accept-Encoding",
+       "Cookie",].each_with_object({}) do |header, hash|
+        key = "HTTP_#{header.upcase.tr("-", "_")}"
         value = request.headers[key]
         hash[header] = value if value.present?
       end
@@ -337,7 +336,7 @@ module PestControl
       when :redirect
         redirect_to result[:path], status: :moved_permanently, allow_other_host: false
       when :not_found
-        render plain: fake_apache_404, status: :not_found, content_type: 'text/html'
+        render plain: fake_apache_404, status: :not_found, content_type: "text/html"
       end
     end
 
@@ -350,7 +349,7 @@ module PestControl
         redirect_to RICKROLL_URL, allow_other_host: true
       when :block
         PestControl.log(:info, "[PEST_CONTROL] 🚫 Blocking bot: #{request.remote_ip}")
-        render plain: '403 Forbidden', status: :forbidden
+        render plain: "403 Forbidden", status: :forbidden
       when :tarpit
         if PestControl.acquire_tarpit_slot!
           PestControl.log(:info, "[PEST_CONTROL] ⏳ Tarpitting bot: #{request.remote_ip}")
@@ -359,7 +358,7 @@ module PestControl
           ensure
             PestControl.release_tarpit_slot!
           end
-          render plain: fake_apache_404, status: :not_found, content_type: 'text/html'
+          render plain: fake_apache_404, status: :not_found, content_type: "text/html"
         else
           PestControl.log(:info, "[PEST_CONTROL] 🎵 Tarpit full, rickrolling: #{request.remote_ip}")
           redirect_to RICKROLL_URL, allow_other_host: true
