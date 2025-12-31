@@ -1,4 +1,4 @@
-# 🍯 PestControl
+# 🦠 PestControl
 
 [![CI](https://github.com/ApaeP/pest_control/actions/workflows/ci.yml/badge.svg)](https://github.com/ApaeP/pest_control/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/ApaeP/pest_control/graph/badge.svg)](https://codecov.io/gh/ApaeP/pest_control)
