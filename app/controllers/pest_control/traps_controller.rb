@@ -5,17 +5,20 @@ module PestControl
     include ActionController::Live
 
     skip_before_action :verify_authenticity_token
-    before_action :handle_legacy_redirect
+    before_action :handle_legacy_redirect, except: [:capture_fingerprint]
     layout false
+
+    TRANSPARENT_GIF = "\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00\x21\xf9\x04\x01\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b".b.freeze
 
     # GET /wp-login.php
     def fake_login
-      log_bot_attempt("FAKE_LOGIN_VIEW")
+      log_bot_attempt('FAKE_LOGIN_VIEW')
 
       if PestControl.should_endless_stream?(request.remote_ip)
-        endless_stream_attack("fake_wordpress_page")
+        endless_stream_attack('fake_wordpress_page')
       else
-        apply_tarpit
+        return unless apply_tarpit
+
         render_login_page
       end
     end
@@ -33,65 +36,112 @@ module PestControl
         }
       end
 
-      log_bot_attempt("CREDENTIAL_CAPTURE", extra)
+      log_bot_attempt('CREDENTIAL_CAPTURE', extra)
 
       if PestControl.should_endless_stream?(request.remote_ip)
-        endless_stream_attack("fake_wordpress_page")
+        endless_stream_attack('fake_wordpress_page')
       else
-        apply_tarpit(base_override: 5)
-        @error = "ERROR: Invalid username or password."
+        return unless apply_tarpit(base_override: 5)
+
+        @error = 'ERROR: Invalid username or password.'
         render_login_page
       end
     end
 
     # GET /wp-admin/*
     def fake_admin
-      log_bot_attempt("FAKE_ADMIN_ACCESS")
+      log_bot_attempt('FAKE_ADMIN_ACCESS')
 
       if PestControl.should_endless_stream?(request.remote_ip)
-        endless_stream_attack("fake_admin_dashboard")
+        endless_stream_attack('fake_admin_dashboard')
       else
-        apply_tarpit
+        return unless apply_tarpit
+
         redirect_to "/wp-login.php?redirect_to=#{CGI.escape(request.path)}", allow_other_host: true
       end
     end
 
     # GET /*.php and other suspicious paths
     def catch_all
-      log_bot_attempt("CATCH_ALL")
+      log_bot_attempt('CATCH_ALL')
 
       if PestControl.should_endless_stream?(request.remote_ip)
-        endless_stream_attack("fake_404")
+        endless_stream_attack('fake_404')
       else
-        apply_tarpit(base_override: 1)
-        render plain: fake_apache_404, status: :not_found, content_type: "text/html"
+        return unless apply_tarpit(base_override: 1)
+
+        render plain: fake_apache_404, status: :not_found, content_type: 'text/html'
       end
     end
 
     # POST /xmlrpc.php
     def fake_xmlrpc
-      body_content = request.body.read rescue ""
-      log_bot_attempt("XMLRPC_ATTACK", body: body_content.truncate(1000))
+      body_content = begin
+        request.body.read
+      rescue StandardError
+        ''
+      end
+      log_bot_attempt('XMLRPC_ATTACK', body: body_content.truncate(1000))
 
       if PestControl.should_endless_stream?(request.remote_ip)
-        endless_stream_attack("fake_xml")
+        endless_stream_attack('fake_xml')
       else
-        apply_tarpit(base_override: 3)
+        return unless apply_tarpit(base_override: 3)
+
         render xml: fake_xmlrpc_response, status: :ok
       end
     end
 
+    # GET /wp-admin/fp.gif
+    def capture_fingerprint
+      return head :not_found unless PestControl.fingerprinting_enabled?
+
+      if request.query_string.present?
+        fingerprint_data = parse_fingerprint(request.query_string)
+        store_fingerprint(request.remote_ip, fingerprint_data) if fingerprint_data
+      end
+
+      send_data TRANSPARENT_GIF, type: 'image/gif', disposition: 'inline'
+    end
+
     private
 
-    def endless_stream_attack(type = "html")
+    def parse_fingerprint(query_string)
+      decoded = CGI.unescape(query_string)
+      JSON.parse(decoded, symbolize_names: true)
+    rescue JSON::ParserError
+      nil
+    end
+
+    def store_fingerprint(ip, data)
+      cache_key = "#{PestControl.configuration.cache_key_prefix}:fingerprint:#{ip}"
+      PestControl.cache.write(cache_key, data, expires_in: 1.hour)
+
+      PestControl.log(:debug, "[PEST_CONTROL] 🔍 Fingerprint captured: #{ip} - #{data}")
+      PestControl.emit_metrics(event: :fingerprint, ip: ip, data: data)
+
+      return unless PestControl.memory_enabled?
+
+      recent_record = TrapRecord.where(ip: ip).where('created_at > ?', 5.minutes.ago).order(created_at: :desc).first
+      recent_record&.update(fingerprint: data)
+    end
+
+    RICKROLL_URL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+
+    def endless_stream_attack(type = 'html')
+      unless PestControl.acquire_stream_slot!
+        handle_overflow
+        return
+      end
+
       visit_count = PestControl.increment_visit_count(request.remote_ip)
       PestControl.notify_endless_stream_start(request.remote_ip, visit_count)
 
       config = PestControl.configuration
 
-      response.headers["Content-Type"] = content_type_for(type)
-      response.headers["Cache-Control"] = "no-cache, no-store"
-      response.headers["X-Accel-Buffering"] = "no"
+      response.headers['Content-Type'] = content_type_for(type)
+      response.headers['Cache-Control'] = 'no-cache, no-store'
+      response.headers['X-Accel-Buffering'] = 'no'
 
       response.stream.write(stream_header(type))
 
@@ -107,21 +157,23 @@ module PestControl
           loop_count += 1
 
           if (loop_count % 100).zero?
-            PestControl.log(:info, "[PEST_CONTROL] 🌊 Streaming: #{request.remote_ip} - #{loop_count} chunks (~#{loop_count * config.stream_chunk_size / 1024}KB)")
+            PestControl.log(:info,
+                            "[PEST_CONTROL] 🌊 Streaming: #{request.remote_ip} - #{loop_count} chunks (~#{loop_count * config.stream_chunk_size / 1024}KB)")
           end
         end
       rescue ActionController::Live::ClientDisconnected, IOError => e
         PestControl.notify_bot_crashed(request.remote_ip, loop_count, e)
       ensure
+        PestControl.release_stream_slot!
         response.stream.close
       end
     end
 
     def content_type_for(type)
       case type
-      when "fake_xml" then "application/xml"
-      when "fake_json" then "application/json"
-      else "text/html"
+      when 'fake_xml' then 'application/xml'
+      when 'fake_json' then 'application/json'
+      else 'text/html'
       end
     end
 
@@ -129,28 +181,28 @@ module PestControl
       site_name = PestControl.configuration.fake_site_name
 
       case type
-      when "fake_wordpress_page"
+      when 'fake_wordpress_page'
         <<~HTML
           <!DOCTYPE html>
           <html lang="en-US">
           <head><meta charset="UTF-8"><title>#{site_name} Dashboard</title></head>
           <body><h1>Loading #{site_name}...</h1><div id="content">
         HTML
-      when "fake_admin_dashboard"
+      when 'fake_admin_dashboard'
         <<~HTML
           <!DOCTYPE html>
           <html><head><title>Dashboard ‹ #{site_name}</title></head>
           <body class="wp-admin"><div id="wpwrap"><h1>Welcome to #{site_name}</h1>
         HTML
-      when "fake_404"
+      when 'fake_404'
         <<~HTML
           <!DOCTYPE HTML><html><head><title>Processing...</title></head>
           <body><h1>Please wait...</h1><div class="content">
         HTML
-      when "fake_xml"
+      when 'fake_xml'
         '<?xml version="1.0" encoding="UTF-8"?><response><status>processing</status><data>'
       else
-        "<html><body><div>"
+        '<html><body><div>'
       end
     end
 
@@ -160,7 +212,7 @@ module PestControl
                  slider widget sidebar menu navigation header footer template]
 
       case type
-      when "fake_xml"
+      when 'fake_xml'
         items = []
         while items.join.bytesize < target_size
           items << "<item id=\"#{iteration * 20 + items.size}\"><value>#{words.sample(5).join(' ')}</value><data>#{SecureRandom.hex(32)}</data></item>\n"
@@ -181,7 +233,12 @@ module PestControl
     end
 
     def apply_tarpit(base_override: nil)
-      return unless PestControl.tarpit_enabled?
+      return true unless PestControl.tarpit_enabled?
+
+      unless PestControl.acquire_tarpit_slot!
+        handle_overflow
+        return false
+      end
 
       visit_count = PestControl.increment_visit_count(request.remote_ip)
 
@@ -192,17 +249,23 @@ module PestControl
         delay = PestControl.calculate_tarpit_delay(visit_count)
       end
 
-      PestControl.log(:info, "[PEST_CONTROL] ⏳ Tarpit: #{request.remote_ip} - visit ##{visit_count} - #{delay.round(1)}s delay")
-      sleep(delay)
+      PestControl.log(:info,
+                      "[PEST_CONTROL] ⏳ Tarpit: #{request.remote_ip} - visit ##{visit_count} - #{delay.round(1)}s delay")
+      begin
+        sleep(delay)
+      ensure
+        PestControl.release_tarpit_slot!
+      end
+      true
     end
 
     def render_login_page
       custom_html = PestControl.configuration.custom_login_html
 
       if custom_html
-        render html: custom_html.html_safe, content_type: "text/html"
+        render html: custom_html.html_safe, content_type: 'text/html'
       else
-        render :fake_login, content_type: "text/html"
+        render :fake_login, content_type: 'text/html'
       end
     end
 
@@ -235,7 +298,8 @@ module PestControl
     end
 
     def extract_headers
-      %w[X-Forwarded-For X-Real-IP CF-Connecting-IP Via Accept-Language Accept-Encoding Cookie].each_with_object({}) do |header, hash|
+      %w[X-Forwarded-For X-Real-IP CF-Connecting-IP Via Accept-Language Accept-Encoding
+         Cookie].each_with_object({}) do |header, hash|
         key = "HTTP_#{header.upcase.tr('-', '_')}"
         value = request.headers[key]
         hash[header] = value if value.present?
@@ -273,7 +337,38 @@ module PestControl
       when :redirect
         redirect_to result[:path], status: :moved_permanently, allow_other_host: false
       when :not_found
-        render plain: fake_apache_404, status: :not_found, content_type: "text/html"
+        render plain: fake_apache_404, status: :not_found, content_type: 'text/html'
+      end
+    end
+
+    def handle_overflow
+      action = PestControl.configuration.overflow_action
+
+      case action
+      when :rickroll
+        PestControl.log(:info, "[PEST_CONTROL] 🎵 Rickrolling bot: #{request.remote_ip}")
+        redirect_to RICKROLL_URL, allow_other_host: true
+      when :block
+        PestControl.log(:info, "[PEST_CONTROL] 🚫 Blocking bot: #{request.remote_ip}")
+        render plain: '403 Forbidden', status: :forbidden
+      when :tarpit
+        if PestControl.acquire_tarpit_slot!
+          PestControl.log(:info, "[PEST_CONTROL] ⏳ Tarpitting bot: #{request.remote_ip}")
+          begin
+            sleep(10)
+          ensure
+            PestControl.release_tarpit_slot!
+          end
+          render plain: fake_apache_404, status: :not_found, content_type: 'text/html'
+        else
+          PestControl.log(:info, "[PEST_CONTROL] 🎵 Tarpit full, rickrolling: #{request.remote_ip}")
+          redirect_to RICKROLL_URL, allow_other_host: true
+        end
+      when String
+        PestControl.log(:info, "[PEST_CONTROL] ↗️ Redirecting bot to #{action}: #{request.remote_ip}")
+        redirect_to action, allow_other_host: true
+      else
+        redirect_to RICKROLL_URL, allow_other_host: true
       end
     end
   end

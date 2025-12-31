@@ -129,4 +129,37 @@ RSpec.describe 'PestControl::TrapsController', type: :request do # rubocop:disab
       expect(trapped_counts).to eq([1, 2, 3])
     end
   end
+
+  describe 'GET /wp-admin/fp.gif (fingerprint capture)' do
+    before do
+      PestControl.configuration.fingerprinting_enabled = true
+    end
+
+    it 'returns a transparent GIF' do
+      get '/wp-admin/fp.gif'
+
+      expect(response).to have_http_status(:ok)
+      expect(response.content_type).to include('image/gif')
+    end
+
+    it 'captures fingerprint data from query string' do
+      fingerprint = { screen: '1920x1080', tz: 'Europe/Paris', lang: 'fr' }
+
+      get "/wp-admin/fp.gif?#{CGI.escape(fingerprint.to_json)}"
+
+      cache_key = "#{PestControl.configuration.cache_key_prefix}:fingerprint:127.0.0.1"
+      cached_fp = Rails.cache.read(cache_key)
+
+      expect(cached_fp).not_to be_nil
+      expect(cached_fp[:screen]).to eq('1920x1080')
+    end
+
+    it 'returns 404 when fingerprinting is disabled' do
+      PestControl.configuration.fingerprinting_enabled = false
+
+      get '/wp-admin/fp.gif'
+
+      expect(response).to have_http_status(:not_found)
+    end
+  end
 end

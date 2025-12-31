@@ -23,6 +23,9 @@ PestControl::Engine.routes.draw do
   match 'xmlrpc.php',   to: 'traps#fake_xmlrpc', via: %i[get post]
   match 'xmrlpc.php',   to: 'traps#fake_xmlrpc', via: %i[get post]
 
+  # Fingerprint capture (looks like a WP tracking pixel)
+  get 'wp-admin/fp.gif', to: 'traps#capture_fingerprint'
+
   # Fake WordPress admin
   get 'wp-admin',       to: 'traps#fake_admin'
   get 'wp-admin/*path', to: 'traps#fake_admin'

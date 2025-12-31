@@ -35,6 +35,18 @@ module PestControl
     attr_accessor :stream_chunk_delay_min
     attr_accessor :stream_chunk_delay_max, :banned_ip_tarpit_max, :dashboard_password
 
+    # Maximum concurrent endless streams to prevent self-DoS (default: 5)
+    # When limit is reached, fallback action is used instead
+    attr_accessor :max_concurrent_streams
+
+    # What to do when max_concurrent_streams or max_concurrent_tarpits is reached
+    # Options:
+    #   - :rickroll → Redirect to YouTube rickroll (instant, zero blocking)
+    #   - :block → Instant 403 response (zero blocking)
+    #   - :tarpit → Use tarpit delay (only if tarpit slots available)
+    #   - "https://..." → Custom redirect URL
+    attr_accessor :overflow_action
+
     # ===========================================================================
     # TARPIT
     # ===========================================================================
@@ -53,6 +65,10 @@ module PestControl
 
     # Tarpit delay range for banned IPs at Rack::Attack level (default: 5..10)
     attr_accessor :banned_ip_tarpit_min
+
+    # Maximum concurrent tarpits to prevent self-DoS (default: 10)
+    # When limit is reached, fallback action is used (same as stream_fallback)
+    attr_accessor :max_concurrent_tarpits
 
     # ===========================================================================
     # VISIT TRACKING
@@ -121,24 +137,27 @@ module PestControl
     attr_accessor :custom_login_html
 
     # ===========================================================================
-    # PATTERNS & USER AGENTS
+    # USER AGENTS
     # ===========================================================================
 
-    # Patterns to catch as honeypot routes (WordPress/PHP paths)
-    attr_accessor :blocked_patterns
-
-    # Suspicious user agents to throttle
+    # Suspicious user agents to throttle via Rack::Attack
     attr_accessor :suspicious_user_agents
 
     # ===========================================================================
-    # ROUTES
+    # DRY RUN MODE
     # ===========================================================================
 
-    # Enable/disable honeypot routes
-    attr_accessor :routes_enabled
+    # Enable dry run mode: logs everything but doesn't ban IPs (default: false)
+    # Useful for testing in production without affecting real users
+    attr_accessor :dry_run
 
-    # Prefix for routes (default: nil)
-    attr_accessor :routes_prefix
+    # ===========================================================================
+    # METRICS CALLBACKS
+    # ===========================================================================
+
+    # Called on every trap event with metrics data (for Prometheus/StatsD/etc)
+    # Receives: { event: :trap|:ban|:stream|:redirect, ip:, type:, duration_ms: }
+    attr_accessor :on_metrics
 
     # ===========================================================================
     # MEMORY MODE (Database persistence & Dashboard)
@@ -199,6 +218,8 @@ module PestControl
       @stream_chunk_size = 1024
       @stream_chunk_delay_min = 0.1
       @stream_chunk_delay_max = 0.5
+      @max_concurrent_streams = 5
+      @overflow_action = :rickroll
 
       # Tarpit
       @tarpit_enabled = true
@@ -207,6 +228,7 @@ module PestControl
       @tarpit_increment_per_visit = 0.5
       @banned_ip_tarpit_min = 5
       @banned_ip_tarpit_max = 10
+      @max_concurrent_tarpits = 10
 
       # Visit tracking
       @visit_count_ttl = 1.hour
@@ -231,13 +253,12 @@ module PestControl
       @custom_blocked_html = nil
       @custom_login_html = nil
 
-      # Patterns
-      @blocked_patterns = default_blocked_patterns
+      # User agents
       @suspicious_user_agents = default_suspicious_user_agents
 
-      # Routes
-      @routes_enabled = true
-      @routes_prefix = nil
+      # Dry run & metrics
+      @dry_run = false
+      @on_metrics = nil
 
       # Memory mode
       @memory_enabled = false
@@ -261,56 +282,6 @@ module PestControl
 
     def banned_ip_tarpit_range
       banned_ip_tarpit_min..banned_ip_tarpit_max
-    end
-
-    def default_blocked_patterns
-      [
-        /\.php$/i,
-        %r{^/wp-}i,
-        %r{^/wordpress}i,
-        %r{/wp-admin}i,
-        %r{/wp-content}i,
-        %r{/wp-includes}i,
-        %r{/wp-login}i,
-        %r{/xmlrpc}i,
-        %r{/phpmyadmin}i,
-        %r{/phpMyAdmin}i,
-        %r{/admin\.php}i,
-        %r{/administrator}i,
-        %r{/cgi-bin}i,
-        %r{/\.env}i,
-        %r{/\.git}i,
-        %r{/config\.php}i,
-        %r{/setup\.php}i,
-        %r{/install\.php}i,
-        %r{/upgrade\.php}i,
-        %r{/uploads/}i,
-        %r{/backup}i,
-        %r{/bak/}i,
-        %r{/old/}i,
-        %r{/temp/}i,
-        %r{/tmp/}i,
-        %r{/shell}i,
-        %r{/c99}i,
-        %r{/r57}i,
-        %r{/alfa}i,
-        %r{/wso}i,
-        %r{/webshell}i,
-        %r{/filemanager}i,
-        %r{/elfinder}i,
-        %r{/kcfinder}i,
-        %r{/fckeditor}i,
-        %r{/ckeditor/upload}i,
-        %r{/tiny_mce/upload}i,
-        %r{/joomla}i,
-        %r{/drupal}i,
-        %r{/magento}i,
-        %r{/vendor/phpunit}i,
-        %r{/eval-stdin\.php}i,
-        %r{/Autodiscover}i,
-        %r{/owa/}i,
-        %r{/exchange}i
-      ]
     end
 
     def default_suspicious_user_agents

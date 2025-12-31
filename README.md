@@ -46,7 +46,72 @@ If you want to laugh at my code, improve it, or add more ways to mess with bots,
 - 📊 **Detailed logging**: IP, User-Agent, headers, login attempts...
 - 🚨 **Sentry integration**: Events sent automatically
 - 🧪 **Memory Mode**: Persist trap records in DB with a beautiful dashboard
+- 🔄 **Legacy Redirects**: Handle old PHP/ASP URLs from site migrations
+- 📈 **Metrics callbacks**: Integrate with Prometheus, StatsD, etc.
+- 🧪 **Dry Run mode**: Test without actually banning
 - ⚙️ **Fully configurable**: Every behavior can be customized
+
+## ⚠️ Performance Considerations
+
+### Thread Blocking
+
+Both **Tarpit** and **Endless Stream** use `sleep()` which **blocks a Puma worker thread**. This is intentional (we want to waste bot resources), but you should be aware:
+
+| Feature | Max Duration | Risk |
+|---------|--------------|------|
+| Tarpit | 30 seconds (default) | Medium |
+| Endless Stream | Minutes to hours | High |
+
+**Protections:**
+
+1. **Concurrent stream limit** — Only 5 endless streams can run simultaneously (`max_concurrent_streams`).
+
+2. **Concurrent tarpit limit** — Only 10 tarpits can run simultaneously (`max_concurrent_tarpits`).
+
+3. When either limit is reached, the `overflow_action` is used:
+   - `:rickroll` (default) — Instant redirect to YouTube, zero thread blocking 🎵
+   - `:block` — Instant 403, zero thread blocking
+   - `:tarpit` — 10s delay (only if tarpit slots available, else rickroll)
+   - `"https://..."` — Custom redirect URL
+
+4. **Use with Rack::Timeout** — PestControl respects Rack::Timeout. If you have it configured, requests will be terminated at the timeout limit.
+
+**Recommendations:**
+
+1. **Monitor your worker pool** — If you see high worker saturation during bot attacks, consider:
+   - Increasing `max_concurrent_streams` if you have many workers
+   - Reducing `tarpit_max_delay`
+   - Lowering `endless_stream_random_chance`
+
+2. **Consider your traffic** — On low-traffic sites, this is rarely an issue. On high-traffic sites with many bots, you may want to disable the more aggressive features.
+
+### Dry Run Mode
+
+Test PestControl in production without actually banning IPs:
+
+```ruby
+PestControl.configure do |config|
+  config.dry_run = true  # Logs everything but doesn't ban
+end
+```
+
+### Metrics Integration
+
+Track PestControl events in your monitoring system:
+
+```ruby
+PestControl.configure do |config|
+  config.on_metrics = ->(data) {
+    # data = { event: :trap|:ban|:stream_start|:fingerprint, ip:, timestamp:, ... }
+
+    # Prometheus example
+    PEST_CONTROL_EVENTS.labels(event: data[:event]).increment
+
+    # StatsD example
+    StatsD.increment("pest_control.#{data[:event]}")
+  }
+end
+```
 
 ## Installation
 
@@ -77,7 +142,8 @@ PestControl.configure do |config|
   # BANNING
   # ============================================================================
   config.ban_duration = 24.hours           # How long IPs stay banned
-  config.banning_enabled = true            # Set false to disable (for testing)
+  config.banning_enabled = true            # Set false to disable
+  config.dry_run = false                   # Log but don't ban (for testing)
 
   # ============================================================================
   # ENDLESS STREAM
@@ -85,6 +151,8 @@ PestControl.configure do |config|
   config.endless_stream_enabled = true     # Enable/disable feature
   config.endless_stream_threshold = 5      # Visits before activating
   config.endless_stream_random_chance = 15 # Random chance (0-100%)
+  config.max_concurrent_streams = 5        # Prevent self-DoS
+  config.overflow_action = :rickroll       # :rickroll, :block, :tarpit, or URL
   config.max_stream_chunks = 50_000        # Max ~50MB per session
   config.stream_chunk_size = 1024          # Bytes per chunk
   config.stream_chunk_delay_min = 0.1      # Min delay between chunks
@@ -97,6 +165,7 @@ PestControl.configure do |config|
   config.tarpit_base_delay = 2             # Base delay (seconds)
   config.tarpit_max_delay = 30             # Maximum delay (seconds)
   config.tarpit_increment_per_visit = 0.5  # Added per visit (seconds)
+  config.max_concurrent_tarpits = 10       # Prevent self-DoS
   config.banned_ip_tarpit_min = 5          # Min delay for banned IPs
   config.banned_ip_tarpit_max = 10         # Max delay for banned IPs
 
@@ -153,10 +222,9 @@ PestControl.configure do |config|
   config.custom_login_html = nil           # Custom login page HTML
 
   # ============================================================================
-  # PATTERNS
+  # USER AGENTS
   # ============================================================================
-  config.blocked_patterns << /\/custom/i   # Add custom patterns
-  config.suspicious_user_agents << /bot/i  # Add custom user agents
+  config.suspicious_user_agents << /my-bot/i  # Add custom user agents to throttle
 end
 ```
 
@@ -394,6 +462,7 @@ If you're using Memory Mode, you should inform users in your privacy policy. Her
 # View all banned IPs
 PestControl.banned_ips
 # => {"1.2.3.4" => {banned_at: ..., reason: ..., expires_at: ...}}
+> **Note on `banned_ips`**: This method may not always list 100% of banned IPs due to the way Rails.cache handles concurrent writes. However, this does not affect the actual banning mechanism — `banned?` checks each IP individually and is always reliable. For atomic operations (SADD, etc.), consider using Redis as your Rails cache store.
 
 # Check if an IP is banned
 PestControl.banned?("1.2.3.4")

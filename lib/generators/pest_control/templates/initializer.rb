@@ -17,10 +17,39 @@ PestControl.configure do |config|
   # config.banning_enabled = true
 
   # ============================================================================
+  # DRY RUN MODE
+  # ============================================================================
+  # Enable this to test PestControl without actually banning IPs.
+  # All actions are logged but no bans are applied.
+
+  # config.dry_run = false
+
+  # ============================================================================
+  # CONCURRENCY LIMITS (anti self-DoS)
+  # ============================================================================
+  # Endless stream and tarpit block threads. These limits prevent attackers
+  # from exhausting your worker pool by spamming requests.
+
+  # Max concurrent endless streams (default: 5)
+  # config.max_concurrent_streams = 5
+
+  # Max concurrent tarpits (default: 10)
+  # config.max_concurrent_tarpits = 10
+
+  # What to do when limits are reached (default: :rickroll)
+  # Options:
+  #   :rickroll → Redirect to YouTube (instant, zero blocking) 🎵
+  #   :block    → Instant 403 response (zero blocking)
+  #   :tarpit   → Use tarpit if slots available, else rickroll
+  #   "https://..." → Custom redirect URL
+  # config.overflow_action = :rickroll
+
+  # ============================================================================
   # ENDLESS STREAM (the kill shot)
   # ============================================================================
+  # Sends infinite garbage data to crash bots. Protected by max_concurrent_streams.
 
-  # Enable/disable endless stream feature (default: true)
+  # Enable/disable endless stream (default: true)
   # config.endless_stream_enabled = true
 
   # Number of visits before activating endless stream (default: 5)
@@ -42,8 +71,9 @@ PestControl.configure do |config|
   # ============================================================================
   # TARPIT (progressive delays)
   # ============================================================================
+  # Slows down responses to waste bot time. Protected by max_concurrent_tarpits.
 
-  # Enable/disable tarpit feature (default: true)
+  # Enable/disable tarpit (default: true)
   # config.tarpit_enabled = true
 
   # Base delay in seconds (default: 2)
@@ -115,13 +145,28 @@ PestControl.configure do |config|
   # }
 
   # ============================================================================
-  # CREDENTIAL CAPTURE
+  # METRICS (Prometheus, StatsD, etc.)
+  # ============================================================================
+  # Called on every significant event for metrics collection.
+  # Receives: { event: :trap|:ban|:stream_start|:stream_crash|:fingerprint, ... }
+
+  # config.on_metrics = ->(data) {
+  #   # Prometheus example:
+  #   # PEST_CONTROL_EVENTS.labels(event: data[:event]).increment
+  #
+  #   # StatsD example:
+  #   # StatsD.increment("pest_control.#{data[:event]}")
+  # }
+
+  # ============================================================================
+  # CREDENTIAL CAPTURE & FINGERPRINTING
   # ============================================================================
 
   # Log captured credentials (default: true)
   # config.capture_credentials = true
 
-  # Enable JavaScript fingerprinting (default: true)
+  # Enable JavaScript fingerprinting on fake login page (default: true)
+  # Collects: screen size, timezone, language, WebGL renderer, etc.
   # config.fingerprinting_enabled = true
 
   # ============================================================================
@@ -138,13 +183,10 @@ PestControl.configure do |config|
   # config.custom_login_html = nil
 
   # ============================================================================
-  # PATTERNS
+  # USER AGENTS
   # ============================================================================
 
-  # Add custom patterns to catch
-  # config.blocked_patterns << /\/my-custom-path/i
-
-  # Add custom user agents to throttle
+  # Add custom user agents to throttle via Rack::Attack
   # config.suspicious_user_agents << /my-custom-bot/i
 
   # ============================================================================
@@ -152,6 +194,7 @@ PestControl.configure do |config|
   # ============================================================================
   # Enable this to persist bot attempts in your database and access the dashboard.
   # Run: rails generate pest_control:memory
+  # Dashboard URL: /pest-control/lab
 
   # Enable database persistence (default: false)
   # config.memory_enabled = false
