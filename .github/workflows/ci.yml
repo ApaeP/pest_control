@@ -40,7 +40,9 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
-          bundler-cache: true
+
+      - name: Install dependencies
+        run: bundle install --jobs 4
 
       - name: Run tests
         run: bundle exec rspec --format progress
@@ -64,8 +66,10 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.3"
-          bundler-cache: true
+          ruby-version: "3.4"
+
+      - name: Install dependencies
+        run: bundle install --jobs 4
 
       - name: Run RuboCop
         run: bundle exec rubocop --parallel
@@ -80,8 +84,10 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.3"
-          bundler-cache: true
+          ruby-version: "3.4"
+
+      - name: Install dependencies
+        run: bundle install --jobs 4
 
       - name: Run bundler-audit
         run: |
