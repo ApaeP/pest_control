@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         ruby: ["3.2", "3.3", "3.4"]
-        rails: ["7.0", "7.1", "7.2", "8.0", "8.1"]
+        rails: ["7.1", "7.2", "8.0", "8.1"]
         include:
           # Ruby 4.0 is brand new (Dec 2025) - test as experimental
           - ruby: "4.0"
@@ -22,10 +22,6 @@ jobs:
           - ruby: "3.4"
             rails: "edge"
             experimental: true
-        exclude:
-          # Rails 7.0 doesn't support Ruby 3.4 well
-          - ruby: "3.4"
-            rails: "7.0"
 
     name: Ruby ${{ matrix.ruby }} / Rails ${{ matrix.rails }}
     continue-on-error: ${{ matrix.experimental || false }}
