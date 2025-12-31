@@ -30,7 +30,7 @@ jobs:
       RAILS_VERSION: ${{ matrix.rails }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Ruby ${{ matrix.ruby }}
         uses: ruby/setup-ruby@v1
@@ -62,7 +62,7 @@ jobs:
     name: RuboCop
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -80,7 +80,7 @@ jobs:
     name: Security
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
