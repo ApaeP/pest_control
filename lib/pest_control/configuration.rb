@@ -116,8 +116,13 @@ module PestControl
     # CREDENTIAL CAPTURE
     # ===========================================================================
 
-    # Enable/disable credential capture logging (default: true)
-    attr_accessor :capture_credentials
+    # How to store captured credentials (default: :hash_password)
+    # Options:
+    #   - :hash_password → Hash passwords with SHA256, keep usernames in clear (recommended)
+    #   - :full → Store everything in clear (use with caution)
+    #   - :username_only → Only store usernames, no passwords
+    #   - :disabled → Don't store any credentials
+    attr_accessor :credentials_storage
 
     # Enable/disable JavaScript fingerprinting (default: true)
     attr_accessor :fingerprinting_enabled
@@ -142,6 +147,14 @@ module PestControl
 
     # Suspicious user agents to throttle via Rack::Attack
     attr_accessor :suspicious_user_agents
+
+    # ===========================================================================
+    # DATA REDACTION
+    # ===========================================================================
+
+    # Headers to exclude from logging (for privacy/security)
+    # These are always redacted, even if they appear in the request
+    attr_accessor :redacted_headers
 
     # ===========================================================================
     # DRY RUN MODE
@@ -210,10 +223,10 @@ module PestControl
       @ban_duration = 24.hours
       @banning_enabled = true
 
-      # Endless stream
-      @endless_stream_enabled = true
+      # Endless stream (disabled by default for safety)
+      @endless_stream_enabled = false
       @endless_stream_threshold = 5
-      @endless_stream_random_chance = 15
+      @endless_stream_random_chance = 0
       @max_stream_chunks = 50_000
       @stream_chunk_size = 1024
       @stream_chunk_delay_min = 0.1
@@ -221,10 +234,10 @@ module PestControl
       @max_concurrent_streams = 5
       @overflow_action = :rickroll
 
-      # Tarpit
+      # Tarpit (conservative defaults)
       @tarpit_enabled = true
       @tarpit_base_delay = 2
-      @tarpit_max_delay = 30
+      @tarpit_max_delay = 10
       @tarpit_increment_per_visit = 0.5
       @banned_ip_tarpit_min = 5
       @banned_ip_tarpit_max = 10
@@ -245,7 +258,7 @@ module PestControl
       @on_bot_crashed = nil
 
       # Credential capture
-      @capture_credentials = true
+      @credentials_storage = :hash_password
       @fingerprinting_enabled = true
 
       # Fake pages
@@ -255,6 +268,9 @@ module PestControl
 
       # User agents
       @suspicious_user_agents = default_suspicious_user_agents
+
+      # Data redaction - headers that are never logged
+      @redacted_headers = %w[Cookie Authorization X-Api-Key X-Auth-Token X-CSRF-Token]
 
       # Dry run & metrics
       @dry_run = false

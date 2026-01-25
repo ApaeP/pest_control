@@ -36,7 +36,21 @@ RSpec.describe "PestControl::TrapsController", type: :request do
   end
 
   describe "POST /wp-login.php" do
-    it "captures credentials when enabled" do
+    it "captures credentials with password hashed by default" do
+      trapped_data = nil
+      PestControl.configuration.on_bot_trapped = ->(data) { trapped_data = data }
+
+      post "/wp-login.php", params: { log: "admin", pwd: "secret123" }
+
+      expect(response).to have_http_status(:ok)
+      expect(trapped_data[:type]).to eq("CREDENTIAL_CAPTURE")
+      expect(trapped_data[:credentials][:username]).to eq("admin")
+      expect(trapped_data[:credentials][:password_hash]).to eq(Digest::SHA256.hexdigest("secret123"))
+      expect(trapped_data[:credentials][:password]).to be_nil
+    end
+
+    it "captures credentials in full when storage mode is :full" do
+      PestControl.configuration.credentials_storage = :full
       trapped_data = nil
       PestControl.configuration.on_bot_trapped = ->(data) { trapped_data = data }
 
@@ -48,8 +62,8 @@ RSpec.describe "PestControl::TrapsController", type: :request do
       expect(trapped_data[:credentials][:password]).to eq("secret123")
     end
 
-    it "does not capture credentials when disabled" do
-      PestControl.configuration.capture_credentials = false
+    it "does not capture credentials when storage is disabled" do
+      PestControl.configuration.credentials_storage = :disabled
       trapped_data = nil
       PestControl.configuration.on_bot_trapped = ->(data) { trapped_data = data }
 

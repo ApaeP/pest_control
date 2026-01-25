@@ -3,7 +3,13 @@
 # PestControl Configuration
 # https://github.com/ApaeP/pest_control
 #
-# All options have sensible defaults. Uncomment and modify as needed.
+# PestControl uses SAFE DEFAULTS out of the box:
+#   - Endless stream: DISABLED (prevents thread exhaustion)
+#   - Tarpit: enabled with conservative 10s max delay
+#   - Credentials: hashed (passwords are SHA256 hashed before storage)
+#   - Sensitive headers: automatically redacted
+#
+# See "CONFIGURATION PROFILES" at the bottom for pre-made configurations.
 
 PestControl.configure do |config|
   # ============================================================================
@@ -38,27 +44,31 @@ PestControl.configure do |config|
 
   # What to do when limits are reached (default: :rickroll)
   # Options:
-  #   :rickroll → Redirect to YouTube (instant, zero blocking) 🎵
+  #   :rickroll → Redirect to YouTube (instant, zero blocking)
   #   :block    → Instant 403 response (zero blocking)
   #   :tarpit   → Use tarpit if slots available, else rickroll
   #   "https://..." → Custom redirect URL
   # config.overflow_action = :rickroll
 
   # ============================================================================
-  # ENDLESS STREAM (the kill shot)
+  # ENDLESS STREAM
   # ============================================================================
-  # Sends infinite garbage data to crash bots. Protected by max_concurrent_streams.
+  # Sends garbage data to waste bot resources. DISABLED BY DEFAULT for safety.
+  # Enable only if you understand the thread-blocking implications.
+  #
+  # WARNING: Each active stream blocks a Puma worker thread!
 
-  # Enable/disable endless stream (default: true)
-  # config.endless_stream_enabled = true
+  # Enable/disable endless stream (default: false)
+  # config.endless_stream_enabled = false
 
   # Number of visits before activating endless stream (default: 5)
   # config.endless_stream_threshold = 5
 
-  # Random chance of endless stream on any visit, 0-100 (default: 15%)
-  # config.endless_stream_random_chance = 15
+  # Random chance of endless stream on any visit, 0-100 (default: 0%)
+  # config.endless_stream_random_chance = 0
 
   # Max chunks to send, ~1KB each (default: 50_000 = ~50MB)
+  # Increase for more aggressive streams (e.g., 500_000 = ~500MB)
   # config.max_stream_chunks = 50_000
 
   # Size of each garbage chunk in bytes (default: 1024)
@@ -79,8 +89,8 @@ PestControl.configure do |config|
   # Base delay in seconds (default: 2)
   # config.tarpit_base_delay = 2
 
-  # Maximum delay in seconds (default: 30)
-  # config.tarpit_max_delay = 30
+  # Maximum delay in seconds (default: 10)
+  # config.tarpit_max_delay = 10
 
   # Additional delay per visit in seconds (default: 0.5)
   # config.tarpit_increment_per_visit = 0.5
@@ -106,24 +116,24 @@ PestControl.configure do |config|
   # Log level: :debug, :info, :warn, :error (default: :warn)
   # config.log_level = :warn
 
-  # Enable Sentry integration (default: true)
+  # Enable Sentry integration (default: true, requires sentry-ruby gem)
   # config.sentry_enabled = true
 
   # Custom logger (default: Rails.logger)
   # config.logger = Rails.logger
 
   # Custom cache (default: Rails.cache)
+  # For reliable IP banning, consider using Redis as your cache store.
   # config.cache = Rails.cache
 
   # ============================================================================
   # CALLBACKS
   # ============================================================================
+  # Use Memory Mode (below) for built-in persistence, or these callbacks
+  # for custom integrations.
 
   # Called when a bot is trapped (receives hash with all data)
   # config.on_bot_trapped = ->(data) {
-  #   # Save to database
-  #   # BotAttempt.create!(data)
-  #
   #   # Send to Slack
   #   # SlackNotifier.notify("#security", "Bot trapped: #{data[:ip]}")
   # }
@@ -141,16 +151,18 @@ PestControl.configure do |config|
 
   # Called when a bot crashes during endless stream (receives ip, chunks_sent, error)
   # config.on_bot_crashed = ->(ip, chunks_sent, error) {
-  #   # Celebrate! 🎉
+  #   # Track success rate
   # }
 
   # ============================================================================
   # METRICS (Prometheus, StatsD, etc.)
   # ============================================================================
   # Called on every significant event for metrics collection.
-  # Receives: { event: :trap|:ban|:stream_start|:stream_crash|:fingerprint, ... }
+  # Events: :trap, :ban, :ban_skipped, :unban, :stream_start, :stream_crash, :fingerprint
 
   # config.on_metrics = ->(data) {
+  #   # data = { event: :trap, ip: "...", type: "...", timestamp: Time.current }
+  #
   #   # Prometheus example:
   #   # PEST_CONTROL_EVENTS.labels(event: data[:event]).increment
   #
@@ -159,15 +171,30 @@ PestControl.configure do |config|
   # }
 
   # ============================================================================
-  # CREDENTIAL CAPTURE & FINGERPRINTING
+  # CREDENTIAL CAPTURE & DATA HANDLING
   # ============================================================================
+  # IMPORTANT: Credentials captured come from bots/attackers, but may contain
+  # stolen data from third parties. Handle with care.
 
-  # Log captured credentials (default: true)
-  # config.capture_credentials = true
+  # How to store captured credentials (default: :hash_password)
+  # Options:
+  #   :hash_password  → Hash passwords with SHA256, keep usernames in clear (RECOMMENDED)
+  #   :username_only  → Only store usernames, no passwords at all
+  #   :disabled       → Don't store any credentials
+  #   :full           → Store everything in clear (use with extreme caution)
+  # config.credentials_storage = :hash_password
 
   # Enable JavaScript fingerprinting on fake login page (default: true)
   # Collects: screen size, timezone, language, WebGL renderer, etc.
   # config.fingerprinting_enabled = true
+
+  # ============================================================================
+  # DATA REDACTION
+  # ============================================================================
+  # Headers that are NEVER logged, even if present in the request.
+  # Add any custom headers that may contain sensitive data.
+
+  # config.redacted_headers = %w[Cookie Authorization X-Api-Key X-Auth-Token X-CSRF-Token]
 
   # ============================================================================
   # FAKE PAGES
@@ -185,8 +212,9 @@ PestControl.configure do |config|
   # ============================================================================
   # USER AGENTS
   # ============================================================================
+  # Requires rack-attack gem for throttling to work.
 
-  # Add custom user agents to throttle via Rack::Attack
+  # Add custom user agents to throttle
   # config.suspicious_user_agents << /my-custom-bot/i
 
   # ============================================================================
@@ -211,7 +239,9 @@ PestControl.configure do |config|
   # Set to nil to keep records indefinitely
   # config.trap_records_retention = 3.years
 
-  # To clean up expired records, run periodically (e.g., via a cron job):
+  # To clean up expired records, run periodically:
+  #   rake pest_control:cleanup
+  # Or in code:
   #   PestControl::TrapRecord.cleanup_expired!
 
   # ============================================================================
@@ -221,7 +251,7 @@ PestControl.configure do |config|
   # pointing to legacy URLs. Enable this to redirect them instead of banning.
 
   # Enable legacy URL handling (default: false)
-  # config.legacy_redirects_enabled = true
+  # config.legacy_redirects_enabled = false
 
   # File extensions to treat as legacy URLs (default: [])
   # config.legacy_extensions = %w[php xml asp aspx jsp]
@@ -242,3 +272,36 @@ PestControl.configure do |config|
   # Log legacy redirect attempts as trap records (default: false)
   # config.legacy_log_redirects = false
 end
+
+# ============================================================================
+# CONFIGURATION PROFILES
+# ============================================================================
+# Uncomment ONE of these profiles, or customize above.
+#
+# SAFE (default) - Conservative settings for production
+# ---------------------------------------------------------
+# PestControl.configure do |config|
+#   config.endless_stream_enabled = false
+#   config.tarpit_max_delay = 10
+#   config.credentials_storage = :hash_password
+# end
+#
+# MODERATE - Balanced security with some aggressive features
+# ---------------------------------------------------------
+# PestControl.configure do |config|
+#   config.endless_stream_enabled = true
+#   config.endless_stream_random_chance = 10
+#   config.tarpit_max_delay = 20
+#   config.credentials_storage = :hash_password
+# end
+#
+# AGGRESSIVE - Maximum annoyance for bots (use with caution)
+# ---------------------------------------------------------
+# PestControl.configure do |config|
+#   config.endless_stream_enabled = true
+#   config.endless_stream_random_chance = 25
+#   config.endless_stream_threshold = 3
+#   config.max_stream_chunks = 200_000  # ~200MB
+#   config.tarpit_max_delay = 30
+#   config.credentials_storage = :full
+# end

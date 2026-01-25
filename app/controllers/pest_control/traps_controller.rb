@@ -28,12 +28,13 @@ module PestControl
       extra = {}
 
       if PestControl.capture_credentials?
-        extra[:credentials] = {
+        raw_credentials = {
           username: params[:log],
           password: params[:pwd],
           remember: params[:rememberme],
           redirect_to: params[:redirect_to],
         }
+        extra[:credentials] = PestControl.sanitize_credentials(raw_credentials)
       end
 
       log_bot_attempt("CREDENTIAL_CAPTURE", extra)
@@ -297,8 +298,16 @@ module PestControl
     end
 
     def extract_headers
-      ["X-Forwarded-For", "X-Real-IP", "CF-Connecting-IP", "Via", "Accept-Language", "Accept-Encoding",
-       "Cookie",].each_with_object({}) do |header, hash|
+      headers_to_capture = [
+        "X-Forwarded-For", "X-Real-IP", "CF-Connecting-IP", "Via",
+        "Accept-Language", "Accept-Encoding", "Accept",
+      ]
+
+      redacted = PestControl.configuration.redacted_headers.map(&:downcase)
+
+      headers_to_capture.each_with_object({}) do |header, hash|
+        next if redacted.include?(header.downcase)
+
         key = "HTTP_#{header.upcase.tr("-", "_")}"
         value = request.headers[key]
         hash[header] = value if value.present?

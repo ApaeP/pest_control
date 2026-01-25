@@ -34,6 +34,8 @@ module PestControl
       end
 
       def capture_credentials_from_banned_ip(req)
+        return unless PestControl.capture_credentials?
+
         params = begin
           req.params
         rescue StandardError
@@ -44,6 +46,15 @@ module PestControl
 
         return unless username.present? || password.present?
 
+        raw_credentials = {
+          username: username,
+          password: password,
+          raw_params: params.except("controller", "action"),
+        }
+        sanitized_credentials = PestControl.sanitize_credentials(raw_credentials)
+
+        return if sanitized_credentials.nil?
+
         trap_data = {
           ip: req.ip,
           type: "CREDENTIAL_CAPTURE_BLOCKED",
@@ -52,11 +63,7 @@ module PestControl
           user_agent: req.user_agent,
           referer: req.referer,
           host: req.host,
-          credentials: {
-            username: username,
-            password: password,
-            raw_params: params.except("controller", "action"),
-          },
+          credentials: sanitized_credentials,
           visit_count: PestControl.get_visit_count(req.ip),
         }
 

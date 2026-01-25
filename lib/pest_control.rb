@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "digest"
 require "pest_control/version"
 require "pest_control/configuration"
 require "pest_control/engine"
@@ -59,11 +60,42 @@ module PestControl
     end
 
     def capture_credentials?
-      configuration.capture_credentials
+      configuration.credentials_storage != :disabled
+    end
+
+    def credentials_storage_mode
+      configuration.credentials_storage
     end
 
     def fingerprinting_enabled?
       configuration.fingerprinting_enabled
+    end
+
+    def sanitize_credentials(credentials)
+      return nil if credentials.nil? || credentials.empty?
+
+      mode = credentials_storage_mode
+
+      case mode
+      when :disabled
+        nil
+      when :username_only
+        {
+          username: credentials[:username],
+          captured_at: Time.current.iso8601,
+        }.compact
+      when :full
+        credentials.merge(captured_at: Time.current.iso8601)
+      else
+        {
+          username: credentials[:username],
+          password_hash: credentials[:password].present? ? Digest::SHA256.hexdigest(credentials[:password].to_s) : nil,
+          remember: credentials[:remember],
+          redirect_to: credentials[:redirect_to],
+          raw_params: credentials[:raw_params],
+          captured_at: Time.current.iso8601,
+        }.compact
+      end
     end
 
     def memory_enabled?
