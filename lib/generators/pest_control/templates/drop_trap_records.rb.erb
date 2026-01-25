@@ -1,0 +1,7 @@
+# frozen_string_literal: true
+
+class DropPestControlTrapRecords < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    drop_table :pest_control_trap_records, if_exists: true
+  end
+end
