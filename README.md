@@ -561,6 +561,42 @@ Is it over-engineered? Maybe.
 Is it petty? 100%.
 Does it spark joy? Yeah.
 
+## Uninstallation
+
+To remove PestControl from your application, run:
+
+```bash
+rails generate pest_control:uninstall
+```
+
+This will:
+- Clear all cached bans and visit data
+- Create a migration to drop the `trap_records` table (if Memory Mode was enabled)
+- Remove the initializer file
+
+After running the generator, you need to manually:
+
+1. **Remove from `config/routes.rb`:**
+
+```ruby
+# Remove this line
+mount PestControl::Engine => "/"
+```
+
+2. **Remove from `Gemfile`:**
+
+```ruby
+# Remove this line
+gem "pest_control", github: "ApaeP/pest_control"
+```
+
+3. **Run migrations and bundle:**
+
+```bash
+rails db:migrate  # If Memory Mode was enabled
+bundle install
+```
+
 ## Contributing
 
 Found a bug? Want to add a feature? **PRs are welcome.**
