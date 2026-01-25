@@ -13,8 +13,13 @@
         <a href="<%= pest_control.pest_control_lab_path %>" class="back-link">← Back to Lab</a>
         <h1>🔍 Trap Records</h1>
       </div>
-      <div class="result-count">
-        <%= @total_count %> record<%= @total_count == 1 ? '' : 's' %> found
+      <div class="header-actions">
+        <span class="result-count">
+          <%= @total_count %> record<%= @total_count == 1 ? '' : 's' %> found
+        </span>
+        <a href="<%= pest_control.pest_control_export_path(request.query_parameters) %>" class="btn btn-secondary">
+          📥 Export CSV
+        </a>
       </div>
     </header>
 

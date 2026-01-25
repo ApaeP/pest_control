@@ -1,0 +1,24 @@
+<%# locals: (user_agent_stats:) %>
+
+<% if user_agent_stats.any? %>
+  <div class="ua-chart">
+    <% max_count = user_agent_stats.first[:count] %>
+    <% user_agent_stats.each do |ua| %>
+      <div class="ua-bar-row">
+        <div class="ua-name" title="<%= ua[:user_agent] %>">
+          <%= truncate(ua[:user_agent], length: 40) %>
+        </div>
+        <div class="ua-bar-track">
+          <div class="ua-bar-fill" style="width: <%= (ua[:count].to_f / max_count * 100).round %>%">
+            <span class="ua-bar-value"><%= ua[:count] %> (<%= ua[:percentage] %>%)</span>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% else %>
+  <div class="empty-state">
+    <div class="icon">📊</div>
+    <p>No user agent data yet.</p>
+  </div>
+<% end %>

@@ -193,6 +193,10 @@ module PestControl
     # Set to nil to keep records indefinitely
     attr_accessor :trap_records_retention
 
+    # Auto-refresh interval for the dashboard in seconds (default: nil = disabled)
+    # Example: 60 for 1 minute refresh
+    attr_accessor :dashboard_auto_refresh
+
     # ===========================================================================
     # LEGACY REDIRECTS
     # ===========================================================================
@@ -282,6 +286,7 @@ module PestControl
       @dashboard_password = nil
       @dashboard_auth = nil
       @trap_records_retention = 3.years
+      @dashboard_auto_refresh = nil
 
       # Legacy redirects
       @legacy_redirects_enabled = false

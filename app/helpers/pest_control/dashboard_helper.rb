@@ -2,12 +2,57 @@
 
 module PestControl
   module DashboardHelper
-    def stat_card(label:, value:, color:, path: nil, anchor: nil)
+    # rubocop:disable Metrics/ParameterLists
+    def stat_card(label:, value:, color:, path: nil, anchor: nil, trend: nil)
+      # rubocop:enable Metrics/ParameterLists
       href = anchor ? "##{anchor}" : path
       content_tag(:a, href: href, class: "stat-card") do
-        content_tag(:div, label, class: "stat-label") +
-          content_tag(:div, value, class: "stat-value #{color}")
+        label_html = content_tag(:div, label, class: "stat-label")
+        value_html = content_tag(:div, class: "stat-value-wrapper") do
+          val = content_tag(:span, value, class: "stat-value #{color}")
+          if trend
+            val + trend_indicator(trend[:current], trend[:previous])
+          else
+            val
+          end
+        end
+        label_html + value_html
       end
+    end
+
+    def trend_indicator(current, previous)
+      return content_tag(:span, "", class: "trend") if previous.nil? || previous.zero?
+
+      change = current - previous
+      percentage = ((change.to_f / previous) * 100).round(1)
+
+      if change.positive?
+        arrow = "↑"
+        css_class = "trend trend-up"
+      elsif change.negative?
+        arrow = "↓"
+        css_class = "trend trend-down"
+      else
+        arrow = "→"
+        css_class = "trend trend-neutral"
+      end
+
+      content_tag(:span, "#{arrow}#{percentage.abs}%", class: css_class, title: "vs previous period: #{previous}")
+    end
+
+    def relative_time(time)
+      return "—" if time.nil?
+
+      diff = Time.current - time
+      relative = case diff
+                 when 0..59 then "#{diff.to_i}s ago"
+                 when 60..3599 then "#{(diff / 60).to_i}m ago"
+                 when 3600..86_399 then "#{(diff / 3600).to_i}h ago"
+                 when 86_400..604_799 then "#{(diff / 86_400).to_i}d ago"
+                 else time.strftime("%b %d")
+                 end
+
+      content_tag(:span, relative, title: time.strftime("%Y-%m-%d %H:%M:%S %Z"), class: "relative-time")
     end
 
     def trap_type_badge(record_or_type, linkable: false)

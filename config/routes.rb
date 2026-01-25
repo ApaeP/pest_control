@@ -6,6 +6,7 @@ PestControl::Engine.routes.draw do
   # ===========================================================================
   get  "pest-control/lab",            to: "dashboard#lab", as: :pest_control_lab
   get  "pest-control/lab/records",    to: "dashboard#records", as: :pest_control_records
+  get  "pest-control/lab/export",     to: "dashboard#export", as: :pest_control_export, defaults: { format: :csv }
   get  "pest-control/lab/record/:id", to: "dashboard#show", as: :pest_control_record
   post "pest-control/lab/unban/:ip",  to: "dashboard#unban", as: :pest_control_unban, constraints: { ip: %r{[^/]+} }
   post "pest-control/lab/ban/:ip",    to: "dashboard#ban", as: :pest_control_ban, constraints: { ip: %r{[^/]+} }

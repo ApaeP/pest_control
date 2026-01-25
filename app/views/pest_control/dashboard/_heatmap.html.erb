@@ -1,0 +1,50 @@
+<%# locals: (heatmap:) %>
+<%
+  day_names = %w[Sun Mon Tue Wed Thu Fri Sat]
+  max_value = heatmap.values.flat_map(&:values).max || 1
+  
+  # Calculate intensity class based on value
+  def heatmap_intensity(value, max_value)
+    return "heat-0" if value.zero?
+    ratio = value.to_f / max_value
+    case ratio
+    when 0..0.2 then "heat-1"
+    when 0.2..0.4 then "heat-2"
+    when 0.4..0.6 then "heat-3"
+    when 0.6..0.8 then "heat-4"
+    else "heat-5"
+    end
+  end
+%>
+
+<div class="heatmap">
+  <div class="heatmap-header">
+    <div class="heatmap-corner"></div>
+    <% (0..23).each do |hour| %>
+      <div class="heatmap-hour"><%= hour.to_s.rjust(2, '0') %></div>
+    <% end %>
+  </div>
+  
+  <% (0..6).each do |dow| %>
+    <div class="heatmap-row">
+      <div class="heatmap-day"><%= day_names[dow] %></div>
+      <% (0..23).each do |hour| %>
+        <% value = heatmap[dow][hour] %>
+        <div class="heatmap-cell <%= heatmap_intensity(value, max_value) %>" 
+             title="<%= day_names[dow] %> <%= hour.to_s.rjust(2, '0') %>:00 - <%= value %> records">
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+  
+  <div class="heatmap-legend">
+    <span class="legend-label">Less</span>
+    <div class="legend-cell heat-0"></div>
+    <div class="legend-cell heat-1"></div>
+    <div class="legend-cell heat-2"></div>
+    <div class="legend-cell heat-3"></div>
+    <div class="legend-cell heat-4"></div>
+    <div class="legend-cell heat-5"></div>
+    <span class="legend-label">More</span>
+  </div>
+</div>

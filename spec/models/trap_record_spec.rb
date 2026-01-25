@@ -31,7 +31,6 @@ RSpec.describe PestControl::TrapRecord, type: :model do
 
     describe ".recent" do
       it "orders by created_at desc" do
-        # Enum returns the key as string
         expect(described_class.recent.first.trap_type).to eq("xmlrpc_attack")
       end
     end
@@ -39,6 +38,12 @@ RSpec.describe PestControl::TrapRecord, type: :model do
     describe ".today" do
       it "returns only records from today" do
         expect(described_class.today.count).to eq(2)
+      end
+    end
+
+    describe ".yesterday" do
+      it "returns only records from yesterday" do
+        expect(described_class.yesterday.count).to eq(1)
       end
     end
 
@@ -96,9 +101,7 @@ RSpec.describe PestControl::TrapRecord, type: :model do
 
         record = described_class.last
         expect(record.ip).to eq("192.168.1.1")
-        # Enum returns the key
         expect(record.trap_type).to eq("fake_login_view")
-        # Raw DB value
         expect(record.trap_type_before_type_cast).to eq("FAKE_LOGIN_VIEW")
         expect(record.path).to eq("/wp-login.php")
         expect(record.user_agent).to eq("curl/7.64.1")
@@ -124,17 +127,153 @@ RSpec.describe PestControl::TrapRecord, type: :model do
       described_class.create!(ip: "1.1.1.1", trap_type: :fake_login_view)
       described_class.create!(ip: "1.1.1.1", trap_type: :credential_capture)
       described_class.create!(ip: "2.2.2.2", trap_type: :fake_login_view)
+      described_class.create!(ip: "3.3.3.3", trap_type: :fake_login_view, created_at: 1.day.ago)
     end
 
     it "returns stats hash" do
       stats = described_class.stats
 
-      expect(stats[:total]).to eq(3)
-      expect(stats[:unique_ips]).to eq(2)
-      # group(:trap_type) returns enum keys
-      expect(stats[:by_type]).to eq({ "fake_login_view" => 2, "credential_capture" => 1 })
+      expect(stats[:total]).to eq(4)
+      expect(stats[:today]).to eq(3)
+      expect(stats[:yesterday]).to eq(1)
+      expect(stats[:unique_ips]).to eq(3)
+      expect(stats[:by_type]).to eq({ "fake_login_view" => 3, "credential_capture" => 1 })
       expect(stats[:credentials_captured]).to eq(1)
       expect(stats[:top_ips].keys).to include("1.1.1.1")
+    end
+  end
+
+  describe ".daily_stats" do
+    before do
+      described_class.create!(ip: "1.1.1.1", trap_type: :fake_login_view)
+      described_class.create!(ip: "1.1.1.1", trap_type: :credential_capture)
+      described_class.create!(ip: "2.2.2.2", trap_type: :fake_login_view, created_at: 1.day.ago)
+      described_class.create!(ip: "3.3.3.3", trap_type: :fake_login_view, created_at: 3.days.ago)
+    end
+
+    it "returns daily stats for the last 7 days" do
+      stats = described_class.daily_stats(days: 7)
+
+      expect(stats.length).to eq(7)
+      expect(stats.first[:date]).to eq(6.days.ago.to_date)
+      expect(stats.last[:date]).to eq(Date.current)
+    end
+
+    it "includes count and credentials for each day" do
+      stats = described_class.daily_stats(days: 7)
+
+      today_stats = stats.last
+      expect(today_stats[:date]).to eq(Date.current)
+      expect(today_stats[:count]).to eq(2)
+      expect(today_stats[:credentials]).to eq(1)
+    end
+
+    it "returns zero for days with no records" do
+      stats = described_class.daily_stats(days: 7)
+
+      empty_day = stats.find { |s| s[:date] == 5.days.ago.to_date }
+      expect(empty_day[:count]).to eq(0)
+      expect(empty_day[:credentials]).to eq(0)
+    end
+  end
+
+  describe ".user_agent_stats" do
+    before do
+      described_class.create!(ip: "1.1.1.1", trap_type: :fake_login_view, user_agent: "curl/7.64.1")
+      described_class.create!(ip: "1.1.1.2", trap_type: :fake_login_view, user_agent: "curl/7.64.1")
+      described_class.create!(ip: "2.2.2.2", trap_type: :fake_login_view, user_agent: "python-requests")
+      described_class.create!(ip: "3.3.3.3", trap_type: :fake_login_view, user_agent: nil)
+    end
+
+    it "returns top user agents by count" do
+      stats = described_class.user_agent_stats(limit: 10)
+
+      expect(stats.first[:user_agent]).to eq("curl/7.64.1")
+      expect(stats.first[:count]).to eq(2)
+      expect(stats.first[:percentage]).to eq(50.0)
+    end
+
+    it "handles nil user agents as (empty)" do
+      stats = described_class.user_agent_stats(limit: 10)
+
+      empty_ua = stats.find { |s| s[:user_agent] == "(empty)" }
+      expect(empty_ua).to be_present
+      expect(empty_ua[:count]).to eq(1)
+    end
+
+    it "respects limit parameter" do
+      stats = described_class.user_agent_stats(limit: 2)
+      expect(stats.length).to eq(2)
+    end
+
+    it "returns empty array when no records" do
+      described_class.delete_all
+      expect(described_class.user_agent_stats).to eq([])
+    end
+  end
+
+  describe ".hourly_heatmap" do
+    before do
+      described_class.create!(ip: "1.1.1.1", trap_type: :fake_login_view)
+      described_class.create!(ip: "2.2.2.2", trap_type: :fake_login_view)
+    end
+
+    it "returns a 7x24 matrix" do
+      heatmap = described_class.hourly_heatmap
+
+      expect(heatmap.keys).to eq((0..6).to_a)
+      heatmap.each_value do |hours|
+        expect(hours.keys).to eq((0..23).to_a)
+      end
+    end
+
+    it "counts records by day of week and hour" do
+      heatmap = described_class.hourly_heatmap
+      current_dow = Time.current.wday
+      current_hour = Time.current.hour
+
+      expect(heatmap[current_dow][current_hour]).to eq(2)
+    end
+  end
+
+  describe ".compare_period" do
+    before do
+      described_class.create!(ip: "1.1.1.1", trap_type: :fake_login_view)
+      described_class.create!(ip: "1.1.1.2", trap_type: :fake_login_view)
+      described_class.create!(ip: "2.2.2.2", trap_type: :fake_login_view, created_at: 1.day.ago)
+    end
+
+    it "compares today vs yesterday" do
+      result = described_class.compare_period(period: :day)
+
+      expect(result[:current]).to eq(2)
+      expect(result[:previous]).to eq(1)
+      expect(result[:change]).to eq(1)
+      expect(result[:percentage]).to eq(100.0)
+    end
+
+    it "returns nil percentage when previous is zero" do
+      described_class.where(created_at: 1.day.ago.all_day).delete_all
+      result = described_class.compare_period(period: :day)
+
+      expect(result[:previous]).to eq(0)
+      expect(result[:percentage]).to be_nil
+    end
+
+    it "supports week period" do
+      result = described_class.compare_period(period: :week)
+
+      expect(result).to have_key(:current)
+      expect(result).to have_key(:previous)
+      expect(result).to have_key(:change)
+      expect(result).to have_key(:percentage)
+    end
+
+    it "supports month period" do
+      result = described_class.compare_period(period: :month)
+
+      expect(result).to have_key(:current)
+      expect(result).to have_key(:previous)
     end
   end
 
