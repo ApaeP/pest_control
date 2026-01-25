@@ -434,12 +434,21 @@ RSpec.describe PestControl do
     end
 
     describe ".capture_credentials?" do
-      it "returns configuration value" do
-        described_class.configuration.capture_credentials = true
+      it "returns true when credentials_storage is not disabled" do
+        described_class.configuration.credentials_storage = :hash_password
         expect(described_class.capture_credentials?).to be true
+      end
 
-        described_class.configuration.capture_credentials = false
+      it "returns false when credentials_storage is disabled" do
+        described_class.configuration.credentials_storage = :disabled
         expect(described_class.capture_credentials?).to be false
+      end
+    end
+
+    describe ".credentials_storage_mode" do
+      it "returns the configured storage mode" do
+        described_class.configuration.credentials_storage = :username_only
+        expect(described_class.credentials_storage_mode).to eq(:username_only)
       end
     end
 
@@ -488,6 +497,110 @@ RSpec.describe PestControl do
   describe ".cache" do
     it "returns configured cache" do
       expect(described_class.cache).to eq(Rails.cache)
+    end
+  end
+
+  describe ".sanitize_credentials" do
+    let(:raw_credentials) do
+      {
+        username: "admin",
+        password: "secret123",
+        remember: "1",
+        redirect_to: "/wp-admin",
+      }
+    end
+
+    context "when credentials_storage is :disabled" do
+      before { described_class.configuration.credentials_storage = :disabled }
+
+      it "returns nil" do
+        expect(described_class.sanitize_credentials(raw_credentials)).to be_nil
+      end
+    end
+
+    context "when credentials_storage is :username_only" do
+      before { described_class.configuration.credentials_storage = :username_only }
+
+      it "returns only username" do
+        result = described_class.sanitize_credentials(raw_credentials)
+        expect(result[:username]).to eq("admin")
+        expect(result[:password]).to be_nil
+        expect(result[:password_hash]).to be_nil
+        expect(result[:captured_at]).to be_present
+      end
+    end
+
+    context "when credentials_storage is :full" do
+      before { described_class.configuration.credentials_storage = :full }
+
+      it "returns all credentials in clear" do
+        result = described_class.sanitize_credentials(raw_credentials)
+        expect(result[:username]).to eq("admin")
+        expect(result[:password]).to eq("secret123")
+        expect(result[:remember]).to eq("1")
+        expect(result[:captured_at]).to be_present
+      end
+    end
+
+    context "when credentials_storage is :hash_password (default)" do
+      before { described_class.configuration.credentials_storage = :hash_password }
+
+      it "returns username in clear and password as SHA256 hash" do
+        result = described_class.sanitize_credentials(raw_credentials)
+        expect(result[:username]).to eq("admin")
+        expect(result[:password]).to be_nil
+        expect(result[:password_hash]).to eq(Digest::SHA256.hexdigest("secret123"))
+        expect(result[:remember]).to eq("1")
+        expect(result[:captured_at]).to be_present
+      end
+
+      it "handles nil password" do
+        credentials = { username: "admin", password: nil }
+        result = described_class.sanitize_credentials(credentials)
+        expect(result[:password_hash]).to be_nil
+      end
+
+      it "handles empty password" do
+        credentials = { username: "admin", password: "" }
+        result = described_class.sanitize_credentials(credentials)
+        expect(result[:password_hash]).to be_nil
+      end
+    end
+
+    context "with nil or empty input" do
+      it "returns nil for nil input" do
+        expect(described_class.sanitize_credentials(nil)).to be_nil
+      end
+
+      it "returns nil for empty hash" do
+        expect(described_class.sanitize_credentials({})).to be_nil
+      end
+    end
+  end
+
+  describe "default configuration (safe defaults)" do
+    let(:config) { PestControl::Configuration.new }
+
+    it "has endless_stream disabled by default" do
+      expect(config.endless_stream_enabled).to be false
+    end
+
+    it "has endless_stream_random_chance at 0 by default" do
+      expect(config.endless_stream_random_chance).to eq(0)
+    end
+
+    it "has tarpit_max_delay at 10 by default" do
+      expect(config.tarpit_max_delay).to eq(10)
+    end
+
+    it "has credentials_storage as :hash_password by default" do
+      expect(config.credentials_storage).to eq(:hash_password)
+    end
+
+    it "has redacted_headers configured by default" do
+      expect(config.redacted_headers).to include("Cookie")
+      expect(config.redacted_headers).to include("Authorization")
+      expect(config.redacted_headers).to include("X-Api-Key")
     end
   end
 end

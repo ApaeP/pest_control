@@ -1,4 +1,4 @@
-# 🦠 PestControl
+# PestControl
 
 [![CI](https://github.com/ApaeP/pest_control/actions/workflows/ci.yml/badge.svg)](https://github.com/ApaeP/pest_control/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/ApaeP/pest_control/graph/badge.svg)](https://codecov.io/gh/ApaeP/pest_control)
@@ -6,125 +6,108 @@
 [![Rails](https://img.shields.io/badge/rails-8.1-D30001.svg?logo=rubyonrails)](https://rubyonrails.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](MIT-LICENSE)
 
-A configurable Rails gem to trap bots scanning your site for vulnerabilities.
+A production-ready Rails gem to trap, analyze, and neutralize bots scanning your site for vulnerabilities.
 
-## Why This Exists (A Rant)
+## Threat Model
 
-It's a peaceful morning. You're sipping coffee, checking your Rails app logs, feeling like a mildly responsible developer. And then you see these again, for the 69420th time this month:
+### What PestControl Targets
 
-```
-ActionController::RoutingError (No route matches [GET] "/wp-login.php")
-ActionController::RoutingError (No route matches [GET] "/xmlrpc.php")
-ActionController::RoutingError (No route matches [GET] "/wp-admin/admin-ajax.php")
-ActionController::RoutingError (No route matches [GET] "/alfa.php")
-ActionController::RoutingError (No route matches [GET] "/adminfuns.php")
-ActionController::RoutingError (No route matches [GET] "/wp-content/plugins/pwnd/as.php")
-```
+- **Automated vulnerability scanners** looking for WordPress, PHP, and common CMS paths
+- **Credential stuffing bots** attempting login on `/wp-login.php`, `/xmlrpc.php`
+- **Script kiddies** probing for `.env`, `.git`, phpMyAdmin, and admin panels
+- **Reconnaissance tools** like zgrab, masscan, nikto, wpscan
 
-**IT'S. NOT. WORDPRESS.**
+### What PestControl Does NOT Target
 
-It's a Rails app. It has always been a Rails app. There is no `wp-login.php`, and there never will be. And yet, every single day, some dumb*** bot from the depths of the internet decides that maybe this time there's a juicy WordPress installation hiding behind that Ruby code.
+- Legitimate crawlers (Googlebot, Bingbot are whitelisted by default)
+- Normal 404s from broken links (use Legacy Redirects for that)
+- DDoS attacks (use a CDN/WAF for that)
+- Application-level attacks (use proper authentication and input validation)
 
-So instead of just ignoring these requests like a normal, well-adjusted person, I decided to waste a perfectly good morning writing this gem. Because if bots want to find WordPress so badly, let's give them the WordPress experience of their dreams:
+### Defense Strategy
 
-- A fake login page that looks real enough (hopefully) to fool their scripts
-- A tarpit that makes them wait for as long as your server allows
-- An endless stream of garbage data to (hopefully) make their memory go boom
-- Automatic IP banning because revenge
+1. **Detect**: Honeypot routes catch requests to paths that should never exist on a Rails app
+2. **Delay**: Progressive tarpit wastes attacker time (2-10s delay per request)
+3. **Ban**: IP is banned after first trap (24h by default)
+4. **Analyze**: Optional database persistence for threat intelligence
 
-Is it over-engineered? Depends, but the fact that I spent more than 2 hours on this might be an indication that it is.
-Is it petty? 100%.
-Does it spark joy? Yeah.
+## Quick Start
 
-### ⚠️ Disclaimer
+```bash
+# Add to Gemfile
+gem "pest_control", github: "ApaeP/pest_control"
+gem "rack-attack"  # Recommended for IP blocking at Rack level
 
-This is `v0.0.1`. I built this in a fit of rage. It's not optimized, nor really tested for production. It probably has bugs. But hey, it works on my machine™ 👨‍💻.
+# Install
+bundle install
+rails generate pest_control:install
 
-If you want to laugh at my code, improve it, or add more ways to mess with bots, **PRs are welcome**. Let's be chaotic together 😄.
-
-## Features
-
-- 🎣 **Fake wp-login**: Realistic WordPress login page that captures credential attempts
-- ⏳ **Progressive tarpit**: The more they return, the longer they wait (2s → 30s)
-- 🌊 **Endless stream**: Sends GBs of garbage data to crash bots
-- 🔨 **Automatic IP banning**: IPs are banned after being trapped
-- 🔍 **Fingerprinting**: Collects bot info (canvas, WebGL, timezone, etc.)
-- 📊 **Detailed logging**: IP, User-Agent, headers, login attempts...
-- 🚨 **Sentry integration**: Events sent automatically
-- 🧪 **Memory Mode**: Persist trap records in DB with a beautiful dashboard
-- 🔄 **Legacy Redirects**: Handle old PHP/ASP URLs from site migrations
-- 📈 **Metrics callbacks**: Integrate with Prometheus, StatsD, etc.
-- 🧪 **Dry Run mode**: Test without actually banning
-- ⚙️ **Fully configurable**: Every behavior can be customized
-
-## ⚠️ Performance Considerations
-
-### Thread Blocking
-
-Both **Tarpit** and **Endless Stream** use `sleep()` which **blocks a Puma worker thread**. This is intentional (we want to waste bot resources), but you should be aware:
-
-| Feature | Max Duration | Risk |
-|---------|--------------|------|
-| Tarpit | 30 seconds (default) | Medium |
-| Endless Stream | Minutes to hours | High |
-
-**Protections:**
-
-1. **Concurrent stream limit** — Only 5 endless streams can run simultaneously (`max_concurrent_streams`).
-
-2. **Concurrent tarpit limit** — Only 10 tarpits can run simultaneously (`max_concurrent_tarpits`).
-
-3. When either limit is reached, the `overflow_action` is used:
-   - `:rickroll` (default) — Instant redirect to YouTube, zero thread blocking 🎵
-   - `:block` — Instant 403, zero thread blocking
-   - `:tarpit` — 10s delay (only if tarpit slots available, else rickroll)
-   - `"https://..."` — Custom redirect URL
-
-4. **Use with Rack::Timeout** — PestControl respects Rack::Timeout. If you have it configured, requests will be terminated at the timeout limit.
-
-**Recommendations:**
-
-1. **Monitor your worker pool** — If you see high worker saturation during bot attacks, consider:
-   - Increasing `max_concurrent_streams` if you have many workers
-   - Reducing `tarpit_max_delay`
-   - Lowering `endless_stream_random_chance`
-
-2. **Consider your traffic** — On low-traffic sites, this is rarely an issue. On high-traffic sites with many bots, you may want to disable the more aggressive features.
-
-### Dry Run Mode
-
-Test PestControl in production without actually banning IPs:
-
-```ruby
-PestControl.configure do |config|
-  config.dry_run = true  # Logs everything but doesn't ban
-end
+# Done! Bots hitting /wp-login.php will now be trapped.
 ```
 
-### Metrics Integration
+## Safe Defaults
 
-Track PestControl events in your monitoring system:
+PestControl ships with **conservative defaults** suitable for production:
 
-```ruby
-PestControl.configure do |config|
-  config.on_metrics = ->(data) {
-    # data = { event: :trap|:ban|:stream_start|:fingerprint, ip:, timestamp:, ... }
+| Feature | Default | Why |
+|---------|---------|-----|
+| Endless stream | **Disabled** | Blocks Puma threads, can cause self-DoS |
+| Random stream chance | **0%** | No surprise resource consumption |
+| Max tarpit delay | **10s** | Reasonable delay without blocking too long |
+| Credentials storage | **:hash_password** | Passwords are SHA256 hashed, never stored in clear |
+| Sensitive headers | **Redacted** | Cookie, Authorization, API keys never logged |
 
-    # Prometheus example
-    PEST_CONTROL_EVENTS.labels(event: data[:event]).increment
+To enable more aggressive features, see [Configuration Profiles](#configuration-profiles).
 
-    # StatsD example
-    StatsD.increment("pest_control.#{data[:event]}")
-  }
-end
+## Decision Flow
+
 ```
+Request arrives (e.g., GET /wp-login.php)
+         │
+         ▼
+┌─────────────────────┐
+│ Rack::Attack layer  │
+│ (requires gem)      │
+└──────────┬──────────┘
+           │
+   ┌───────┴───────┐
+   │ IP banned?    │
+   └───────┬───────┘
+           │
+   YES ────┼──── NO
+   │       │
+   ▼       ▼
+┌──────┐  ┌──────────────────────┐
+│ 403  │  │ PestControl Engine   │
+│ +tar │  │                      │
+│ pit  │  │ 1. Log attempt       │
+└──────┘  │ 2. Apply tarpit      │
+          │ 3. Ban IP            │
+          │ 4. Serve fake page   │
+          └──────────────────────┘
+```
+
+### Ban Policy
+
+- **First trap** = immediate ban (unless dry_run mode)
+- **Ban duration**: 24 hours (configurable)
+- **Legacy URLs**: configurable tolerance before ban (see Legacy Redirects)
+
+## Requirements
+
+- Rails 7.0+
+- Ruby 3.0+
+- **rack-attack** (recommended) - for IP blocking at Rack level
+
+Without rack-attack, honeypots still work but banned IPs can reach Rails before being blocked.
 
 ## Installation
 
-Add the gem to your Gemfile:
+Add to your Gemfile:
 
 ```ruby
 gem "pest_control", github: "ApaeP/pest_control"
+gem "rack-attack"  # Recommended
 ```
 
 Then run:
@@ -134,242 +117,330 @@ bundle install
 rails generate pest_control:install
 ```
 
-This will:
-- Create `config/initializers/pest_control.rb`
-- Add `mount PestControl::Engine => "/"` to your routes
+This creates:
+- `config/initializers/pest_control.rb` - Configuration file
+- Adds `mount PestControl::Engine => "/"` to your routes
+
+### Why Mount on "/"?
+
+The engine must be mounted at the root to intercept paths like `/wp-login.php`. **All application routes are resolved first; the engine only catches unresolved paths.** This means your existing routes always take precedence - PestControl acts as a smart catch-all for suspicious paths that would otherwise return 404. To see all captured routes:
+
+```bash
+rake pest_control:routes
+```
 
 ## Configuration
 
-The initializer contains all available options:
+### Basic Configuration
 
 ```ruby
+# config/initializers/pest_control.rb
 PestControl.configure do |config|
-  # ============================================================================
-  # BANNING
-  # ============================================================================
-  config.ban_duration = 24.hours           # How long IPs stay banned
-  config.banning_enabled = true            # Set false to disable
-  config.dry_run = false                   # Log but don't ban (for testing)
+  # Banning
+  config.ban_duration = 24.hours
+  config.banning_enabled = true
+  config.dry_run = false  # Set true to test without banning
 
-  # ============================================================================
-  # ENDLESS STREAM
-  # ============================================================================
-  config.endless_stream_enabled = true     # Enable/disable feature
-  config.endless_stream_threshold = 5      # Visits before activating
-  config.endless_stream_random_chance = 15 # Random chance (0-100%)
-  config.max_concurrent_streams = 5        # Prevent self-DoS
-  config.overflow_action = :rickroll       # :rickroll, :block, :tarpit, or URL
-  config.max_stream_chunks = 50_000        # Max ~50MB per session
-  config.stream_chunk_size = 1024          # Bytes per chunk
-  config.stream_chunk_delay_min = 0.1      # Min delay between chunks
-  config.stream_chunk_delay_max = 0.5      # Max delay between chunks
+  # Tarpit (enabled by default)
+  config.tarpit_enabled = true
+  config.tarpit_base_delay = 2
+  config.tarpit_max_delay = 10
 
-  # ============================================================================
-  # TARPIT
-  # ============================================================================
-  config.tarpit_enabled = true             # Enable/disable feature
-  config.tarpit_base_delay = 2             # Base delay (seconds)
-  config.tarpit_max_delay = 30             # Maximum delay (seconds)
-  config.tarpit_increment_per_visit = 0.5  # Added per visit (seconds)
-  config.max_concurrent_tarpits = 10       # Prevent self-DoS
-  config.banned_ip_tarpit_min = 5          # Min delay for banned IPs
-  config.banned_ip_tarpit_max = 10         # Max delay for banned IPs
+  # Credentials (hashed by default)
+  config.credentials_storage = :hash_password  # :disabled, :username_only, :full
 
-  # ============================================================================
-  # VISIT TRACKING
-  # ============================================================================
-  config.visit_count_ttl = 1.hour          # How long to remember visits
-  config.cache_key_prefix = "pest_control"  # Cache key prefix
-
-  # ============================================================================
-  # LOGGING
-  # ============================================================================
-  config.log_level = :warn                 # :debug, :info, :warn, :error
-  config.sentry_enabled = true             # Send events to Sentry
-  config.logger = Rails.logger             # Custom logger
-  config.cache = Rails.cache               # Custom cache
-
-  # ============================================================================
-  # CALLBACKS
-  # ============================================================================
-
-  # Called when a bot is trapped
-  config.on_bot_trapped = ->(data) {
-    BotAttempt.create!(data)               # Save to database
-    SlackNotifier.ping("Bot: #{data[:ip]}")
-  }
-
-  # Called when an IP is banned
-  config.on_ip_banned = ->(ip, reason) {
-    Firewall.block_ip(ip)                  # Add to external blocklist
-  }
-
-  # Called when endless stream starts
-  config.on_endless_stream_start = ->(ip, visit_count) {
-    puts "💀 Destroying #{ip}..."
-  }
-
-  # Called when bot crashes during endless stream
-  config.on_bot_crashed = ->(ip, chunks_sent, error) {
-    puts "🎉 #{ip} crashed after #{chunks_sent}KB!"
-  }
-
-  # ============================================================================
-  # CREDENTIAL CAPTURE
-  # ============================================================================
-  config.capture_credentials = true        # Log captured credentials
-  config.fingerprinting_enabled = true     # Enable JS fingerprinting
-
-  # ============================================================================
-  # FAKE PAGES
-  # ============================================================================
-  config.fake_site_name = "WordPress"      # Name shown on fake login
-  config.custom_blocked_html = nil         # Custom 403 page HTML
-  config.custom_login_html = nil           # Custom login page HTML
-
-  # ============================================================================
-  # USER AGENTS
-  # ============================================================================
-  config.suspicious_user_agents << /my-bot/i  # Add custom user agents to throttle
+  # Logging
+  config.log_level = :warn  # :debug, :info, :warn, :error
+  config.sentry_enabled = true
 end
 ```
 
-## How It Works
+### Configuration Profiles
 
-### Request Flow
+#### Safe (Default)
 
-```
-Bot requests /wp-login.php
-         │
-         ▼
-   ┌─────────────────┐
-   │  Rack::Attack   │
-   │  Is IP banned?  │
-   └────────┬────────┘
-            │
-    ┌───────┴───────┐
-    │               │
-   YES              NO
-    │               │
-    ▼               ▼
-┌─────────┐   ┌──────────────────┐
-│  403    │   │ HoneypotController│
-│ Blocked │   │                  │
-│ +tarpit │   │ 1. Log attempt   │
-└─────────┘   │ 2. Count visits  │
-              │ 3. Tarpit OR     │
-              │    Endless stream│
-              │ 4. Serve fake    │
-              │    login page    │
-              │ 5. Ban IP        │
-              └──────────────────┘
+Conservative settings for production. Minimal resource usage.
+
+```ruby
+PestControl.configure do |config|
+  config.endless_stream_enabled = false
+  config.tarpit_max_delay = 10
+  config.credentials_storage = :hash_password
+end
 ```
 
-### Tarpit Delay Formula
+#### Moderate
 
-```
-delay = base_delay + (visit_count × increment_per_visit)
-delay = min(delay, max_delay)
+Balanced security with some aggressive features.
+
+```ruby
+PestControl.configure do |config|
+  config.endless_stream_enabled = true
+  config.endless_stream_random_chance = 10
+  config.tarpit_max_delay = 20
+  config.credentials_storage = :hash_password
+end
 ```
 
-Example with defaults:
+#### Aggressive
+
+Maximum annoyance for bots. **Use with caution** - can block many Puma threads.
+
+```ruby
+PestControl.configure do |config|
+  config.endless_stream_enabled = true
+  config.endless_stream_random_chance = 25
+  config.endless_stream_threshold = 3
+  config.max_stream_chunks = 200_000  # ~200MB per session
+  config.tarpit_max_delay = 30
+  config.credentials_storage = :full
+end
+```
+
+## Features
+
+### Tarpit (Progressive Delays)
+
+Wastes bot time by introducing delays before responding.
+
+```ruby
+config.tarpit_enabled = true
+config.tarpit_base_delay = 2       # Base delay in seconds
+config.tarpit_max_delay = 10       # Maximum delay
+config.tarpit_increment_per_visit = 0.5  # Added per visit
+config.max_concurrent_tarpits = 10 # Prevent thread exhaustion
+```
+
+Delay formula: `delay = base + (visit_count × increment)`, capped at `max_delay`.
+
 | Visit | Delay |
 |-------|-------|
 | 1 | 2.5s |
-| 2 | 3.0s |
 | 5 | 4.5s |
-| 10 | 7.0s |
-| 56+ | 30s (max) |
+| 16+ | 10s (max) |
 
-### Endless Stream
+### Endless Stream (Disabled by Default)
 
-After threshold visits (or random chance), the server:
-1. Starts HTTP streaming response
-2. Sends ~1KB chunks every 100-500ms
-3. Bot accumulates data in memory
-4. Eventually crashes or times out
+Sends garbage data to waste bot resources. **Blocks a Puma thread** for the duration.
 
-## Paths Covered
-
-Default patterns catch:
-- `*.php` (any PHP file)
-- `/wp-login.php`, `/wp-admin/*`
-- `/wp-content/*`, `/wp-includes/*`
-- `/xmlrpc.php`
-- `/phpmyadmin`, `/phpMyAdmin`
-- `/administrator`, `/admin.php`
-- `/.env`, `/.git/*`
-- `/backup`, `/bak`, `/old`, `/tmp`
-- Known webshells: `/c99`, `/r57`, `/alfa`, `/wso`
-
-## 🔄 Legacy Redirects
-
-If your site was migrated from PHP, ASP, or another platform, you might have old backlinks (from Wikipedia, blogs, etc.) pointing to legacy URLs like `/contact.php`. By default, PestControl would ban these legitimate visitors.
-
-Enable Legacy Redirects to handle them gracefully:
+> **Thread blocking context**: This affects Puma's thread pool within a single worker. In cluster mode with multiple workers, the impact is isolated per worker. If you use an async server (Falcon) or process requests in background jobs (Sidekiq), this limitation doesn't apply. The `max_concurrent_streams` setting is your primary safeguard.
 
 ```ruby
-PestControl.configure do |config|
-  config.legacy_redirects_enabled = true
-  config.legacy_extensions = %w[php xml asp]
-
-  # Custom mappings (optional, takes priority)
-  config.legacy_mappings = {
-    "/periode3.php" => "/periode-3",
-    "/feed.xml"     => "/rss"
-  }
-
-  # Auto-strip extension: /contact.php → /contact (default: true)
-  config.legacy_strip_extension = true
-
-  # Allow 5 visits on unmapped URLs before banning (default: 5)
-  config.legacy_tolerance = 5
-
-  # Log redirects as trap records (default: false)
-  config.legacy_log_redirects = false
-end
+config.endless_stream_enabled = true
+config.endless_stream_threshold = 5      # Visits before activation
+config.endless_stream_random_chance = 15 # Random chance (0-100%)
+config.max_concurrent_streams = 5        # Prevent self-DoS
+config.max_stream_chunks = 50_000        # ~50MB per session (configurable)
+config.overflow_action = :rickroll       # When limits reached
 ```
 
-### How It Works
+#### Throughput Calculation
+
+| Chunks | Chunk Size | Delay Range | Data Sent | Duration |
+|--------|------------|-------------|-----------|----------|
+| 50,000 | 1KB | 0.1-0.5s | ~50MB | 1.5-7 hours |
+| 200,000 | 1KB | 0.1-0.5s | ~200MB | 6-28 hours |
+| 500,000 | 2KB | 0.05-0.2s | ~1GB | 7-28 hours |
+
+To send GBs of data, increase `max_stream_chunks` and/or `stream_chunk_size`.
+
+#### Overflow Actions
+
+When `max_concurrent_streams` or `max_concurrent_tarpits` is reached:
+
+| Action | Description |
+|--------|-------------|
+| `:rickroll` | Redirect to YouTube (default, zero blocking) |
+| `:block` | Instant 403 response |
+| `:tarpit` | Use tarpit if slots available |
+| `"https://..."` | Custom redirect URL |
+
+### Fake WordPress Pages
+
+- `/wp-login.php` - Realistic login page with credential capture
+- `/wp-admin/*` - Redirects to fake login
+- `/xmlrpc.php` - Fake XML-RPC endpoint
+- `/wp-content/*`, `/wp-includes/*`, `/wp-json/*` - Catch-all traps
+
+### Browser Fingerprinting
+
+Captures bot fingerprints via a tracking pixel **embedded only in honeypot responses** (fake login page, etc.). This does **not** affect legitimate users browsing your site - the fingerprinting script is never served on your application pages.
+
+```ruby
+config.fingerprinting_enabled = true
+```
+
+Collects: screen size, timezone, language, WebGL renderer, etc. Data is stored per-IP and associated with trap records.
+
+### Legacy Redirects
+
+For sites migrated from PHP/ASP, avoid banning legitimate visitors following old links:
+
+```ruby
+config.legacy_redirects_enabled = true
+config.legacy_extensions = %w[php xml asp]
+config.legacy_mappings = {
+  "/old-page.php" => "/new-page",
+  "/feed.xml" => "/rss"
+}
+config.legacy_strip_extension = true  # /contact.php → /contact
+config.legacy_tolerance = 5           # GET visits before ban
+```
+
+## Data Handling
+
+### Credentials Storage Modes
+
+| Mode | Username | Password | Use Case |
+|------|----------|----------|----------|
+| `:hash_password` | Clear | SHA256 hash | **Default** - Safe analysis |
+| `:username_only` | Clear | Not stored | Minimal data collection |
+| `:disabled` | Not stored | Not stored | Maximum privacy |
+| `:full` | Clear | Clear | Threat research (use with caution) |
+
+```ruby
+config.credentials_storage = :hash_password
+```
+
+### Header Redaction
+
+Sensitive headers are **never logged**, even if present:
+
+```ruby
+# Default redacted headers
+config.redacted_headers = %w[Cookie Authorization X-Api-Key X-Auth-Token X-CSRF-Token]
+
+# Add custom headers
+config.redacted_headers << "X-Custom-Secret"
+```
+
+### Data Retention
+
+```ruby
+config.trap_records_retention = 3.years  # Default
+# config.trap_records_retention = 1.year
+# config.trap_records_retention = nil     # Keep forever
+```
+
+Clean up expired records:
+
+```bash
+rake pest_control:cleanup
+```
+
+Or in code: `PestControl::TrapRecord.cleanup_expired!`
+
+### GDPR Compliance
+
+If using Memory Mode, inform users in your privacy policy:
+
+> **Protection Against Automated Attacks**
+>
+> This website uses a security system ([PestControl](https://github.com/ApaeP/pest_control)) to protect against malicious bots. When a suspicious request is detected (attempts to access non-existent paths such as `/wp-login.php`), the following data may be collected:
+>
+> - IP address
+> - Browser User-Agent
+> - Requested URL and HTTP headers (sensitive headers redacted)
+> - Submitted credentials (passwords are hashed, never stored in clear)
+>
+> This data is collected based on our legitimate interest (Article 6.1.f of GDPR) to protect our infrastructure. Data is retained for a maximum of 3 years.
+
+## Observability
+
+### Log Format
 
 ```
-GET /contact.php arrives
-         │
-         ▼
-  ┌──────────────────────────┐
-  │ Extension in legacy list?│
-  └───────────┬──────────────┘
-              │
-      ┌───────┴───────┐
-      NO              YES
-      │               │
-      ▼               ▼
-   Normal         ┌─────────────────┐
-   PestControl    │ Custom mapping? │
-   (ban)          └────────┬────────┘
-                           │
-                   ┌───────┴───────┐
-                   YES             NO
-                   │               │
-                   ▼               ▼
-               301 to          Strip extension
-               mapping         301 → /contact
+[PEST_CONTROL] 🍯 BOT TRAPPED: {"type":"FAKE_LOGIN_VIEW","ip":"1.2.3.4",...}
+[PEST_CONTROL] ⏳ Tarpit: 1.2.3.4 - visit #1 - 2.5s delay
+[PEST_CONTROL] 🔨 IP BANNED: 1.2.3.4 - Reason: honeypot:FAKE_LOGIN_VIEW
+[PEST_CONTROL] 🌊 ENDLESS STREAM ACTIVATED: 1.2.3.4 (visit #5)
+[PEST_CONTROL] 💀 BOT CRASHED: 1.2.3.4 after 847 chunks (~847KB) - IOError
 ```
 
-### Behavior Summary
+### Metrics Callback
 
-| Request | Result |
-|---------|--------|
-| `GET /periode3.php` (mapped) | 301 → `/periode-3` |
-| `GET /contact.php` (strip enabled) | 301 → `/contact` |
-| `GET /unknown.php` (visits 1-5) | 404 (no ban) |
-| `GET /unknown.php` (visit 6+) | Ban |
-| `POST /contact.php` | Ban (only GET is tolerated) |
-| `GET /wp-login.php` (not in legacy_extensions) | Normal PestControl behavior |
+```ruby
+config.on_metrics = ->(data) {
+  # data structure:
+  # {
+  #   event: :trap | :ban | :ban_skipped | :unban | :stream_start | :stream_crash | :fingerprint,
+  #   ip: "1.2.3.4",
+  #   type: "FAKE_LOGIN_VIEW",  # for trap events
+  #   reason: "honeypot:...",    # for ban events
+  #   timestamp: Time.current
+  # }
 
-## 🧪 Memory Mode (Dashboard)
+  # Prometheus
+  PEST_CONTROL_EVENTS.labels(event: data[:event]).increment
 
-Want to analyze your pest collection? Enable Memory Mode to persist trap records and access a beautiful dashboard.
+  # StatsD
+  StatsD.increment("pest_control.#{data[:event]}")
+}
+```
+
+### Event Types
+
+| Event | Description | Extra Fields |
+|-------|-------------|--------------|
+| `:trap` | Bot hit a honeypot | `type`, `ip` |
+| `:ban` | IP was banned | `ip`, `reason` |
+| `:ban_skipped` | Ban skipped (dry run) | `ip`, `reason` |
+| `:unban` | IP was unbanned | `ip` |
+| `:stream_start` | Endless stream started | `ip`, `visit_count` |
+| `:stream_crash` | Bot disconnected during stream | `ip`, `chunks_sent` |
+| `:fingerprint` | Fingerprint captured | `ip`, `data` |
+
+### Sentry Integration
+
+When Sentry is available and enabled:
+
+```ruby
+config.sentry_enabled = true
+```
+
+Events are sent with:
+- Level: `warning`
+- Extra data: full trap data
+- Message: `[PEST_CONTROL] Bot trapped: {type}`
+
+## rack-attack Integration
+
+### Installation
+
+```ruby
+# Gemfile
+gem "rack-attack"
+```
+
+No additional configuration required. When rack-attack is detected, PestControl automatically registers:
+- A **blocklist** rule to block banned IPs before they reach Rails
+- A **throttle** rule for suspicious user-agents (10 req/min)
+- Custom **responders** for blocked/throttled requests (with tarpit delay)
+
+Your existing rack-attack rules (if any) remain untouched.
+
+### What rack-attack Provides
+
+| Feature | With rack-attack | Without |
+|---------|------------------|---------|
+| Block banned IPs at Rack level | ✅ | ❌ (blocked at Rails level) |
+| Tarpit delay for blocked requests | ✅ | ❌ |
+| User-Agent throttling | ✅ | ❌ |
+
+### Cache Store Recommendation
+
+For reliable IP banning with concurrent writes, use Redis:
+
+```ruby
+# config/environments/production.rb
+config.cache_store = :redis_cache_store, { url: ENV["REDIS_URL"] }
+```
+
+The `banned_ips` method may not list 100% of banned IPs with non-atomic cache stores, but `banned?(ip)` is always reliable.
+
+## Memory Mode (Dashboard)
+
+Persist trap records in your database and access an analysis dashboard.
 
 ### Setup
 
@@ -381,156 +452,124 @@ rails db:migrate
 ### Configuration
 
 ```ruby
-PestControl.configure do |config|
-  # Enable database persistence
-  config.memory_enabled = true
+config.memory_enabled = true
 
-  # Dashboard authentication - Option 1: HTTP Basic Auth
-  config.dashboard_username = "admin"
-  config.dashboard_password = ENV["PEST_CONTROL_DASHBOARD_PASSWORD"]
+# Authentication - Option 1: HTTP Basic Auth
+config.dashboard_username = "admin"
+config.dashboard_password = ENV["PEST_CONTROL_PASSWORD"]
 
-  # Dashboard authentication - Option 2: Custom lambda (takes precedence)
-  # Example: only allow admin users
-  config.dashboard_auth = ->(controller) { controller.current_user&.admin? }
-end
+# Authentication - Option 2: Custom lambda
+config.dashboard_auth = ->(controller) { controller.current_user&.admin? }
 ```
 
-### Dashboard
+### Dashboard Features
 
-Access the dashboard at `/pest-control/lab` to see:
-- 📊 **Stats**: Total specimens, unique IPs, credentials captured
-- 🎯 **Trap Types Distribution**: Which traps are catching the most bots
-- 🏆 **Top Offenders**: IPs with the most attempts (ban/unban from here)
-- 📋 **Recent Specimens**: Detailed log of all trap records
-- 🔒 **Banned IPs**: View and manage bans
+Access at `/pest-control/lab`:
 
-### Model
+- **Stats**: Total specimens, unique IPs, credentials captured
+- **Trap Distribution**: Which traps catch the most bots
+- **Top Offenders**: IPs with most attempts (ban/unban from here)
+- **Recent Records**: Detailed log with search/filter
+- **Banned IPs**: View and manage bans
 
-The `PestControl::TrapRecord` model stores:
-- IP, path, method, user agent, referer
-- Headers and request params
-- Captured credentials
-- Browser fingerprint data
-- Visit count and endless stream flag
+### Query Examples
 
 ```ruby
-# Query examples
 PestControl::TrapRecord.today.count
 PestControl::TrapRecord.by_ip("1.2.3.4")
 PestControl::TrapRecord.with_credentials
 PestControl::TrapRecord.stats
-
-# Clean up old records (run periodically via cron/Sidekiq)
-PestControl::TrapRecord.cleanup_expired!
 ```
 
-### Data Retention
+## API Reference
 
-By default, trap records are kept for **3 years**. You can configure this:
-
-```ruby
-PestControl.configure do |config|
-  config.trap_records_retention = 3.years  # Default
-  # config.trap_records_retention = 1.year
-  # config.trap_records_retention = nil    # Keep forever
-end
-```
-
-To clean up expired records, run periodically:
+### Module Methods
 
 ```ruby
-# In a Rake task, cron job, or Sidekiq scheduled job
-PestControl::TrapRecord.cleanup_expired!
-```
-
-### Legal Notice Example
-
-If you're using Memory Mode, you should inform users in your privacy policy. Here's an example paragraph you can adapt:
-
-#### Privacy Policy
-
-> **Protection Against Automated Attacks**
->
-> This website uses a security system to protect against malicious bots ([PestControl](https://github.com/ApaeP/pest_control)). When a suspicious request is detected (attempts to access non-existent paths such as `/wp-login.php`, `/xmlrpc.php`, or any `.php` file), the following data may be collected and retained for a maximum of 3 years:
->
-> - IP address
-> - Browser User-Agent
-> - Requested URL and HTTP headers
-> - Submitted credentials (in case of fraudulent login attempts)
->
-> This data is collected based on our **legitimate interest** (Article 6.1.f of GDPR) to protect our infrastructure against unauthorized access and intrusion attempts.
->
-> This information is not shared with third parties and is only used for security and threat analysis purposes. No data is collected by PestControl during normal browsing of the website.
-
-## Managing Banned IPs
-
-```ruby
-# View all banned IPs
+# Banning
+PestControl.ban_ip!(ip, reason)
+PestControl.unban_ip!(ip)
+PestControl.banned?(ip)
 PestControl.banned_ips
-# => {"1.2.3.4" => {banned_at: ..., reason: ..., expires_at: ...}}
-> **Note on `banned_ips`**: This method may not always list 100% of banned IPs due to the way Rails.cache handles concurrent writes. However, this does not affect the actual banning mechanism — `banned?` checks each IP individually and is always reliable. For atomic operations (SADD, etc.), consider using Redis as your Rails cache store.
-
-# Check if an IP is banned
-PestControl.banned?("1.2.3.4")
-# => true
-
-# Unban an IP
-PestControl.unban_ip!("1.2.3.4")
-
-# Unban all IPs
 PestControl.clear_all_bans!
 
-# Get visit count for an IP
-PestControl.get_visit_count("1.2.3.4")
-# => 3
+# Visit tracking
+PestControl.get_visit_count(ip)
+PestControl.reset_visit_count(ip)
 
-# Reset visit count
-PestControl.reset_visit_count("1.2.3.4")
+# Credentials
+PestControl.sanitize_credentials(raw_credentials)
+PestControl.capture_credentials?
+PestControl.credentials_storage_mode
+
+# Status
+PestControl.dry_run?
+PestControl.tarpit_enabled?
+PestControl.endless_stream_enabled?
+PestControl.memory_enabled?
 ```
 
-## Log Output
+### Rake Tasks
 
-```
-[PEST_CONTROL] 🍯 BOT TRAPPED: {"type":"FAKE_LOGIN_VIEW","ip":"4.217.237.222",...}
-[PEST_CONTROL] ⏳ Tarpit: 4.217.237.222 - visit #1 - 2.5s delay
-[PEST_CONTROL] 🔨 IP BANNED: 4.217.237.222 - Reason: honeypot:FAKE_LOGIN_VIEW
-[PEST_CONTROL] 🍯 BOT TRAPPED: {"type":"CREDENTIAL_CAPTURE","credentials":{...},...}
-[PEST_CONTROL] 🌊 ENDLESS STREAM ACTIVATED: 4.217.237.222 (visit #5)
-[PEST_CONTROL] 💀 BOT CRASHED: 4.217.237.222 after 847 chunks (~847KB) - IOError
-[PEST_CONTROL] 🚫 BLOCKED (banned IP): 4.217.237.222 -> /wp-login.php
+```bash
+rake pest_control:routes   # List all honeypot routes
+rake pest_control:config   # Show current configuration
+rake pest_control:banned   # List banned IPs
+rake pest_control:clear_bans  # Clear all bans
+rake pest_control:cleanup  # Delete expired trap records
 ```
 
 ## Testing
 
-To test without banning real IPs:
+### Dry Run Mode
+
+Test in production without banning:
 
 ```ruby
-# config/initializers/pest_control.rb
-PestControl.configure do |config|
-  config.banning_enabled = false  # Disable banning
-  config.log_level = :debug       # Verbose logging
-end
+config.dry_run = true
 ```
 
-## Requirements
+### Disable Banning
 
-- Rails 7.0+
-- Ruby 3.0+
-- rack-attack gem
+For development/testing:
+
+```ruby
+config.banning_enabled = false
+config.log_level = :debug
+```
+
+## Author's note & Why This Exists
+
+It's a peaceful morning. You're sipping coffee, checking your Rails app logs, feeling like a mildly responsible developer. And then you see these again:
+
+```
+ActionController::RoutingError (No route matches [GET] "/wp-login.php")
+ActionController::RoutingError (No route matches [GET] "/xmlrpc.php")
+ActionController::RoutingError (No route matches [GET] "/wp-admin/admin-ajax.php")
+```
+
+**IT'S. NOT. WORDPRESS.**
+
+So instead of just ignoring these requests like a normal, well-adjusted person, I decided to build this gem. Because if bots want to find WordPress so badly, let's give them the WordPress experience of their dreams:
+
+- A fake login page that looks real enough to fool their scripts
+- A tarpit that makes them wait
+- An endless stream of garbage data
+- Automatic IP banning
+
+Is it over-engineered? Maybe.
+Is it petty? 100%.
+Does it spark joy? Yeah.
 
 ## Contributing
 
-Found a bug? Want to add a feature? Have an even more diabolical way to mess with bots? **I'm here for it.**
-
-This gem was born from frustration and built with spite. If that energy resonates with you, let's collaborate:
+Found a bug? Want to add a feature? **PRs are welcome.**
 
 1. Fork it
-2. Create your feature branch (`git checkout -b feature/even-more-chaos`)
-3. Commit your changes (`git commit -am 'Add rickroll redirect for repeat offenders'`)
-4. Push to the branch (`git push origin feature/even-more-chaos`)
+2. Create your feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes (`git commit -am 'Add my feature'`)
+4. Push to the branch (`git push origin feature/my-feature`)
 5. Open a Pull Request
-
-No contribution is too unhinged. Well, maybe some are. But let's find out together.
 
 ## License
 

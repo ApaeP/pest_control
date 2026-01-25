@@ -36,18 +36,26 @@ module PestControl
 
       def show_post_install_message
         say ""
-        say "🍯 PestControl installed successfully!", :green
+        say "PestControl installed successfully!", :green
         say ""
-        say "  • Initializer: config/initializers/pest_control.rb"
+        say "Files created:"
+        say "  • config/initializers/pest_control.rb"
         say '  • Routes: mount PestControl::Engine => "/"'
         say ""
-        say "Bots scanning for WordPress will now:", :yellow
-        say "  • See a fake login page (credentials captured)"
-        say "  • Wait 2-30s per request (progressive tarpit)"
-        say "  • Get banned for 24h after first trap"
-        say "  • Receive GBs of garbage data (endless stream)"
+        say "Safe defaults enabled:", :cyan
+        say "  • Tarpit: 2-10s delay per request"
+        say "  • Credentials: passwords hashed (SHA256)"
+        say "  • Endless stream: DISABLED (enable in config)"
+        say "  • IPs banned for 24h after first trap"
         say ""
-        say "Enjoy! 🎉", :green
+        say "Recommended: Install rack-attack for IP blocking at Rack level:", :yellow
+        say "  gem 'rack-attack'"
+        say ""
+        say "Useful commands:"
+        say "  rake pest_control:routes  # List all honeypot routes"
+        say "  rake pest_control:config  # Show current configuration"
+        say "  rake pest_control:banned  # List banned IPs"
+        say ""
       end
     end
   end
