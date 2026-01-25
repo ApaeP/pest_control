@@ -270,7 +270,7 @@ module PestControl
       @suspicious_user_agents = default_suspicious_user_agents
 
       # Data redaction - headers that are never logged
-      @redacted_headers = %w[Cookie Authorization X-Api-Key X-Auth-Token X-CSRF-Token]
+      @redacted_headers = ["Cookie", "Authorization", "X-Api-Key", "X-Auth-Token", "X-CSRF-Token"]
 
       # Dry run & metrics
       @dry_run = false

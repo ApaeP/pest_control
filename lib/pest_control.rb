@@ -72,7 +72,7 @@ module PestControl
     end
 
     def sanitize_credentials(credentials)
-      return nil if credentials.nil? || credentials.empty?
+      return nil if credentials.blank?
 
       mode = credentials_storage_mode
 

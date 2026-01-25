@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# rubocop:disable Metrics/BlockLength
 namespace :pest_control do
   desc "List all routes captured by PestControl honeypots"
   task routes: :environment do
@@ -12,28 +13,28 @@ namespace :pest_control do
     puts ""
     puts "Dashboard Routes (requires Memory Mode):"
     puts "-" * 60
-    puts format("  %-6s %-30s %s", "GET", "/pest-control/lab", "Dashboard home")
-    puts format("  %-6s %-30s %s", "GET", "/pest-control/lab/records", "Records list (paginated)")
-    puts format("  %-6s %-30s %s", "GET", "/pest-control/lab/record/:id", "Record detail")
-    puts format("  %-6s %-30s %s", "POST", "/pest-control/lab/ban/:ip", "Ban an IP")
-    puts format("  %-6s %-30s %s", "POST", "/pest-control/lab/unban/:ip", "Unban an IP")
+    puts "  GET    /pest-control/lab              Dashboard home"
+    puts "  GET    /pest-control/lab/records      Records list (paginated)"
+    puts "  GET    /pest-control/lab/record/:id   Record detail"
+    puts "  POST   /pest-control/lab/ban/:ip      Ban an IP"
+    puts "  POST   /pest-control/lab/unban/:ip    Unban an IP"
     puts ""
     puts "Honeypot Traps:"
     puts "-" * 60
-    puts format("  %-6s %-30s %s", "GET", "/wp-login.php", "Fake WordPress login page")
-    puts format("  %-6s %-30s %s", "POST", "/wp-login.php", "Capture login credentials")
-    puts format("  %-6s %-30s %s", "GET", "/wp-login", "Fake WordPress login (alt)")
-    puts format("  %-6s %-30s %s", "*", "/xmlrpc.php", "Fake XML-RPC endpoint")
-    puts format("  %-6s %-30s %s", "GET", "/wp-admin/fp.gif", "Fingerprint capture pixel")
-    puts format("  %-6s %-30s %s", "GET", "/wp-admin/*", "Fake admin area")
-    puts format("  %-6s %-30s %s", "GET", "/wp-content/*", "WordPress content trap")
-    puts format("  %-6s %-30s %s", "GET", "/wp-includes/*", "WordPress includes trap")
-    puts format("  %-6s %-30s %s", "GET", "/wp-json/*", "WordPress REST API trap")
-    puts format("  %-6s %-30s %s", "GET", "/phpmyadmin*", "phpMyAdmin trap")
-    puts format("  %-6s %-30s %s", "GET", "/administrator*", "Admin panel trap")
-    puts format("  %-6s %-30s %s", "GET", "/.env", "Environment file trap")
-    puts format("  %-6s %-30s %s", "GET", "/.git/*", "Git repository trap")
-    puts format("  %-6s %-30s %s", "*", "*.php", "Any PHP file (catch-all)")
+    puts "  GET    /wp-login.php                  Fake WordPress login page"
+    puts "  POST   /wp-login.php                  Capture login credentials"
+    puts "  GET    /wp-login                      Fake WordPress login (alt)"
+    puts "  *      /xmlrpc.php                    Fake XML-RPC endpoint"
+    puts "  GET    /wp-admin/fp.gif               Fingerprint capture pixel"
+    puts "  GET    /wp-admin/*                    Fake admin area"
+    puts "  GET    /wp-content/*                  WordPress content trap"
+    puts "  GET    /wp-includes/*                 WordPress includes trap"
+    puts "  GET    /wp-json/*                     WordPress REST API trap"
+    puts "  GET    /phpmyadmin*                   phpMyAdmin trap"
+    puts "  GET    /administrator*                Admin panel trap"
+    puts "  GET    /.env                          Environment file trap"
+    puts "  GET    /.git/*                        Git repository trap"
+    puts "  *      *.php                          Any PHP file (catch-all)"
     puts ""
     puts "Legacy URL Handling:"
     puts "-" * 60
@@ -92,7 +93,8 @@ namespace :pest_control do
     puts "  endless_stream_threshold:  #{config.endless_stream_threshold}"
     puts "  endless_stream_random_chance: #{config.endless_stream_random_chance}%"
     puts "  max_concurrent_streams:    #{config.max_concurrent_streams}"
-    puts "  max_stream_chunks:         #{config.max_stream_chunks} (~#{config.max_stream_chunks * config.stream_chunk_size / 1024 / 1024}MB)"
+    stream_mb = config.max_stream_chunks * config.stream_chunk_size / 1024 / 1024
+    puts "  max_stream_chunks:         #{config.max_stream_chunks} (~#{stream_mb}MB)"
     puts "  overflow_action:           #{config.overflow_action.inspect}"
     puts ""
 
@@ -120,7 +122,8 @@ namespace :pest_control do
 
     puts "Integrations:"
     puts "  sentry_enabled:            #{config.sentry_enabled}"
-    puts "  rack-attack installed:     #{defined?(Rack::Attack) ? "yes" : "NO (warning: IP blocking at Rack level disabled)"}"
+    rack_status = defined?(Rack::Attack) ? "yes" : "NO (IP blocking disabled)"
+    puts "  rack-attack installed:     #{rack_status}"
     puts ""
   end
 
@@ -136,10 +139,10 @@ namespace :pest_control do
       puts "No IPs currently banned."
     else
       puts ""
-      puts format("  %-20s %-25s %s", "IP", "Banned At", "Expires At")
-      puts "  " + "-" * 56
+      puts "  IP                   Banned At                 Expires At"
+      puts "  #{"-" * 56}"
       banned.each do |ip, data|
-        puts format("  %-20s %-25s %s", ip, data[:banned_at], data[:expires_at])
+        puts "  #{ip.ljust(20)} #{data[:banned_at].to_s.ljust(25)} #{data[:expires_at]}"
       end
     end
     puts ""
@@ -163,3 +166,4 @@ namespace :pest_control do
     puts "Deleted #{deleted} expired trap record(s)."
   end
 end
+# rubocop:enable Metrics/BlockLength
