@@ -104,37 +104,32 @@ module PestControl
         }
       end
 
-      # Returns daily stats for the last N days
-      # @param days [Integer] Number of days to include (default: 7)
-      # @return [Array<Hash>] Array of {date:, count:, credentials:}
       def daily_stats(days: 7)
         start_date = (days - 1).days.ago.beginning_of_day
         end_date = Time.current.end_of_day
 
-        # Get counts by date
         counts_by_date = where(created_at: start_date..end_date)
                          .group("DATE(created_at)")
                          .count
+                         .transform_keys(&:to_s)
 
         credentials_by_date = with_credentials
                               .where(created_at: start_date..end_date)
                               .group("DATE(created_at)")
                               .count
+                              .transform_keys(&:to_s)
 
-        # Build array with all days (including zeros)
         (0...days).map do |i|
           date = (days - 1 - i).days.ago.to_date
+          date_key = date.to_s
           {
             date: date,
-            count: counts_by_date[date] || 0,
-            credentials: credentials_by_date[date] || 0,
+            count: counts_by_date[date_key] || 0,
+            credentials: credentials_by_date[date_key] || 0,
           }
         end
       end
 
-      # Returns top user agents by count
-      # @param limit [Integer] Number of results (default: 10)
-      # @return [Array<Hash>] Array of {user_agent:, count:, percentage:}
       def user_agent_stats(limit: 10)
         total = count
         return [] if total.zero?
@@ -152,10 +147,7 @@ module PestControl
           end
       end
 
-      # Returns activity heatmap by day of week and hour
-      # @return [Hash] {day_of_week => {hour => count}}
       def hourly_heatmap
-        # Get counts grouped by day of week (0-6) and hour (0-23)
         results = if connection.adapter_name.downcase.include?("postgres")
                     group("EXTRACT(DOW FROM created_at)::integer")
                       .group("EXTRACT(HOUR FROM created_at)::integer")
@@ -166,10 +158,8 @@ module PestControl
                       .count
                   end
 
-        # Build 7x24 matrix with all zeros
         heatmap = (0..6).index_with { |_| (0..23).index_with { |_| 0 } }
 
-        # Fill with actual counts
         results.each do |(dow, hour), heatmap_count|
           heatmap[dow.to_i][hour.to_i] = heatmap_count
         end
@@ -177,9 +167,6 @@ module PestControl
         heatmap
       end
 
-      # Compares current period count to previous period
-      # @param period [Symbol] :day, :week, or :month
-      # @return [Hash] {current:, previous:, change:, percentage:}
       def compare_period(period: :day)
         case period
         when :day

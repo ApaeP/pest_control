@@ -12,8 +12,6 @@ module PestControl
       @top_ips = @stats[:top_ips]
       @by_type = @stats[:by_type]
       @banned_ips = PestControl.banned_ips
-
-      # New stats for enhanced dashboard
       @daily_stats = TrapRecord.daily_stats(days: 7)
       @user_agent_stats = TrapRecord.user_agent_stats(limit: 10)
       @heatmap = TrapRecord.hourly_heatmap

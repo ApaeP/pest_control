@@ -20,10 +20,6 @@ module PestControl
       end
     end
 
-    # Returns a trend indicator with arrow and percentage
-    # @param current [Integer] Current period value
-    # @param previous [Integer] Previous period value
-    # @return [String] HTML for trend indicator
     def trend_indicator(current, previous)
       return content_tag(:span, "", class: "trend") if previous.nil? || previous.zero?
 
@@ -44,9 +40,6 @@ module PestControl
       content_tag(:span, "#{arrow}#{percentage.abs}%", class: css_class, title: "vs previous period: #{previous}")
     end
 
-    # Returns relative time string with full timestamp on hover
-    # @param time [Time] The time to format
-    # @return [String] HTML with relative time and title
     def relative_time(time)
       return "—" if time.nil?
 

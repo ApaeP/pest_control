@@ -15,6 +15,103 @@ RSpec.describe PestControl::DashboardHelper, type: :helper do
       result = helper.stat_card(label: "Test", value: "50", color: "blue", anchor: "section")
       expect(result).to include('href="#section"')
     end
+
+    it "renders with trend indicator when trend provided" do
+      result = helper.stat_card(
+        label: "Today",
+        value: "10",
+        color: "blue",
+        path: "/test",
+        trend: { current: 10, previous: 5 }
+      )
+      expect(result).to include("stat-value-wrapper")
+      expect(result).to include("trend")
+      expect(result).to include("↑")
+    end
+
+    it "renders without trend indicator when trend is nil" do
+      result = helper.stat_card(label: "Total", value: "100", color: "green", path: "/test", trend: nil)
+      expect(result).not_to include("trend-up")
+      expect(result).not_to include("trend-down")
+    end
+  end
+
+  describe "#trend_indicator" do
+    it "shows up arrow for positive change" do
+      result = helper.trend_indicator(10, 5)
+      expect(result).to include("↑")
+      expect(result).to include("trend-up")
+      expect(result).to include("100.0%")
+    end
+
+    it "shows down arrow for negative change" do
+      result = helper.trend_indicator(5, 10)
+      expect(result).to include("↓")
+      expect(result).to include("trend-down")
+      expect(result).to include("50.0%")
+    end
+
+    it "shows neutral arrow for no change" do
+      result = helper.trend_indicator(10, 10)
+      expect(result).to include("→")
+      expect(result).to include("trend-neutral")
+      expect(result).to include("0.0%")
+    end
+
+    it "returns empty span when previous is zero" do
+      result = helper.trend_indicator(10, 0)
+      expect(result).to include('class="trend"')
+      expect(result).not_to include("↑")
+      expect(result).not_to include("↓")
+    end
+
+    it "returns empty span when previous is nil" do
+      result = helper.trend_indicator(10, nil)
+      expect(result).to include('class="trend"')
+    end
+
+    it "includes title with previous value" do
+      result = helper.trend_indicator(10, 5)
+      expect(result).to include('title="vs previous period: 5"')
+    end
+  end
+
+  describe "#relative_time" do
+    it "returns dash for nil time" do
+      expect(helper.relative_time(nil)).to eq("—")
+    end
+
+    it "shows seconds ago for recent times" do
+      result = helper.relative_time(30.seconds.ago)
+      expect(result).to include("s ago")
+      expect(result).to include("relative-time")
+    end
+
+    it "shows minutes ago for times within an hour" do
+      result = helper.relative_time(5.minutes.ago)
+      expect(result).to include("m ago")
+    end
+
+    it "shows hours ago for times within a day" do
+      result = helper.relative_time(3.hours.ago)
+      expect(result).to include("h ago")
+    end
+
+    it "shows days ago for times within a week" do
+      result = helper.relative_time(2.days.ago)
+      expect(result).to include("d ago")
+    end
+
+    it "shows date for older times" do
+      result = helper.relative_time(10.days.ago)
+      expect(result).to include(10.days.ago.strftime("%b"))
+    end
+
+    it "includes full timestamp in title" do
+      time = 1.hour.ago
+      result = helper.relative_time(time)
+      expect(result).to include(time.strftime("%Y-%m-%d"))
+    end
   end
 
   describe "#trap_type_badge" do
