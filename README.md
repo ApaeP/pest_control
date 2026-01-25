@@ -460,25 +460,39 @@ config.dashboard_password = ENV["PEST_CONTROL_PASSWORD"]
 
 # Authentication - Option 2: Custom lambda
 config.dashboard_auth = ->(controller) { controller.current_user&.admin? }
+
+# Auto-refresh dashboard (optional, in seconds)
+config.dashboard_auto_refresh = 60  # nil to disable (default)
 ```
 
 ### Dashboard Features
 
 Access at `/pest-control/lab`:
 
-- **Stats**: Total specimens, unique IPs, credentials captured
+- **Stats with Trends**: Total specimens, daily comparison, credentials captured
+- **7-Day Activity Chart**: Visual bar chart of recent activity
 - **Trap Distribution**: Which traps catch the most bots
-- **Top Offenders**: IPs with most attempts (ban/unban from here)
-- **Recent Records**: Detailed log with search/filter
-- **Banned IPs**: View and manage bans
+- **Top User Agents**: Most common bot signatures
+- **Activity Heatmap**: Day/hour grid showing attack patterns
+- **Top Offenders**: IPs with most attempts (ban/unban)
+- **Recent Records**: Latest 10 with link to full searchable list
+- **CSV Export**: Download filtered records for analysis
+- **Light/Dark Mode**: Automatic via system preference
 
 ### Query Examples
 
 ```ruby
 PestControl::TrapRecord.today.count
+PestControl::TrapRecord.yesterday.count
 PestControl::TrapRecord.by_ip("1.2.3.4")
 PestControl::TrapRecord.with_credentials
 PestControl::TrapRecord.stats
+
+# Analytics methods
+PestControl::TrapRecord.daily_stats(days: 7)     # Last 7 days breakdown
+PestControl::TrapRecord.user_agent_stats(limit: 10)  # Top user agents
+PestControl::TrapRecord.hourly_heatmap           # Activity by day/hour
+PestControl::TrapRecord.compare_period(period: :day) # Today vs yesterday
 ```
 
 ## API Reference

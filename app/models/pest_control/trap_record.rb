@@ -20,6 +20,7 @@ module PestControl
 
     scope :recent, -> { order(created_at: :desc) }
     scope :today, -> { where(created_at: Time.current.beginning_of_day..) }
+    scope :yesterday, -> { where(created_at: 1.day.ago.all_day) }
     scope :by_ip, ->(ip) { where(ip: ip) }
     scope :by_type, ->(type) { where(trap_type: type) }
     scope :with_credentials, -> { where(trap_type: ["CREDENTIAL_CAPTURE", "CREDENTIAL_CAPTURE_BLOCKED"]) }
@@ -95,10 +96,117 @@ module PestControl
         {
           total: count,
           today: today.count,
+          yesterday: yesterday.count,
           unique_ips: distinct.count(:ip),
           by_type: group(:trap_type).count,
           credentials_captured: with_credentials.count,
           top_ips: group(:ip).order(count_id: :desc).limit(10).count(:id),
+        }
+      end
+
+      # Returns daily stats for the last N days
+      # @param days [Integer] Number of days to include (default: 7)
+      # @return [Array<Hash>] Array of {date:, count:, credentials:}
+      def daily_stats(days: 7)
+        start_date = (days - 1).days.ago.beginning_of_day
+        end_date = Time.current.end_of_day
+
+        # Get counts by date
+        counts_by_date = where(created_at: start_date..end_date)
+                         .group("DATE(created_at)")
+                         .count
+
+        credentials_by_date = with_credentials
+                              .where(created_at: start_date..end_date)
+                              .group("DATE(created_at)")
+                              .count
+
+        # Build array with all days (including zeros)
+        (0...days).map do |i|
+          date = (days - 1 - i).days.ago.to_date
+          {
+            date: date,
+            count: counts_by_date[date] || 0,
+            credentials: credentials_by_date[date] || 0,
+          }
+        end
+      end
+
+      # Returns top user agents by count
+      # @param limit [Integer] Number of results (default: 10)
+      # @return [Array<Hash>] Array of {user_agent:, count:, percentage:}
+      def user_agent_stats(limit: 10)
+        total = count
+        return [] if total.zero?
+
+        group(:user_agent)
+          .order(count_id: :desc)
+          .limit(limit)
+          .count(:id)
+          .map do |ua, ua_count|
+            {
+              user_agent: ua.presence || "(empty)",
+              count: ua_count,
+              percentage: (ua_count.to_f / total * 100).round(1),
+            }
+          end
+      end
+
+      # Returns activity heatmap by day of week and hour
+      # @return [Hash] {day_of_week => {hour => count}}
+      def hourly_heatmap
+        # Get counts grouped by day of week (0-6) and hour (0-23)
+        results = if connection.adapter_name.downcase.include?("postgres")
+                    group("EXTRACT(DOW FROM created_at)::integer")
+                      .group("EXTRACT(HOUR FROM created_at)::integer")
+                      .count
+                  else
+                    group("CAST(strftime('%w', created_at) AS INTEGER)")
+                      .group("CAST(strftime('%H', created_at) AS INTEGER)")
+                      .count
+                  end
+
+        # Build 7x24 matrix with all zeros
+        heatmap = (0..6).index_with { |_| (0..23).index_with { |_| 0 } }
+
+        # Fill with actual counts
+        results.each do |(dow, hour), heatmap_count|
+          heatmap[dow.to_i][hour.to_i] = heatmap_count
+        end
+
+        heatmap
+      end
+
+      # Compares current period count to previous period
+      # @param period [Symbol] :day, :week, or :month
+      # @return [Hash] {current:, previous:, change:, percentage:}
+      def compare_period(period: :day)
+        case period
+        when :day
+          current_start = Time.current.beginning_of_day
+          previous_start = 1.day.ago.beginning_of_day
+          previous_end = 1.day.ago.end_of_day
+        when :week
+          current_start = Time.current.beginning_of_week
+          previous_start = 1.week.ago.beginning_of_week
+          previous_end = 1.week.ago.end_of_week
+        when :month
+          current_start = Time.current.beginning_of_month
+          previous_start = 1.month.ago.beginning_of_month
+          previous_end = 1.month.ago.end_of_month
+        end
+
+        current_count = where(created_at: current_start..).count
+        previous_count = where(created_at: previous_start..previous_end).count
+
+        change = current_count - previous_count
+        percentage = previous_count.positive? ? ((change.to_f / previous_count) * 100).round(1) : nil
+
+        {
+          current: current_count,
+          previous: previous_count,
+          change: change,
+          percentage: percentage,
         }
       end
 

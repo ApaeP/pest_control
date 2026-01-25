@@ -1,0 +1,22 @@
+<%# locals: (daily_stats:) %>
+<%
+  max_count = daily_stats.map { |d| d[:count] }.max || 1
+  day_names = %w[Sun Mon Tue Wed Thu Fri Sat]
+%>
+
+<div class="trend-chart">
+  <div class="chart-bars">
+    <% daily_stats.each do |day| %>
+      <div class="chart-bar-wrapper">
+        <div class="chart-bar" 
+             style="height: <%= (day[:count].to_f / max_count * 100).round %>%"
+             title="<%= day[:date].strftime('%B %d, %Y') %>: <%= day[:count] %> records<%= day[:credentials].positive? ? " (#{day[:credentials]} with credentials)" : '' %>">
+          <% if day[:count].positive? %>
+            <span class="chart-bar-value"><%= day[:count] %></span>
+          <% end %>
+        </div>
+        <span class="chart-bar-label"><%= day[:date].strftime('%a') %></span>
+      </div>
+    <% end %>
+  </div>
+</div>

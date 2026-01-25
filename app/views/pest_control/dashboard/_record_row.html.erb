@@ -1,7 +1,13 @@
-<%# locals: (record:, show_date: false, show_credentials: false) %>
+<%# locals: (record:, show_date: false, show_credentials: false, use_relative_time: false) %>
 
 <tr>
-  <td><%= record.created_at.strftime(show_date ? "%Y-%m-%d %H:%M" : "%H:%M:%S") %></td>
+  <td>
+    <% if use_relative_time %>
+      <%= relative_time(record.created_at) %>
+    <% else %>
+      <%= record.created_at.strftime(show_date ? "%Y-%m-%d %H:%M" : "%H:%M:%S") %>
+    <% end %>
+  </td>
   <td><%= ip_cell(record.ip) %></td>
   <td><%= trap_type_badge(record, linkable: true) %></td>
   <td><%= truncate(record.path, length: 30) %></td>
