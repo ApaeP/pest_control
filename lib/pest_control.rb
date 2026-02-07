@@ -153,11 +153,7 @@ module PestControl
         expires_at = Time.zone.parse(ban_data[:expires_at])
         next unless expires_at > Time.current
 
-        result[ip] = {
-          banned_at: Time.zone.parse(ban_data[:banned_at]),
-          reason: ban_data[:reason],
-          expires_at: expires_at,
-        }
+        result[ip] = ban_data.merge(banned_at: Time.zone.parse(ban_data[:banned_at]), expires_at: expires_at)
       end
 
       cleanup_ban_index(result.keys) if result.size < index.size
