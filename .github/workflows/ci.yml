@@ -37,6 +37,10 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
 
+      - name: Fix gem directory permissions (Ruby 4.0)
+        if: matrix.ruby == '4.0'
+        run: chmod +t "$(ruby -e 'puts Gem.default_dir')/gems"
+
       - name: Install dependencies
         run: bundle install --jobs 4
 

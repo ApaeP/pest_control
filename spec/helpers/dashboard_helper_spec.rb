@@ -112,6 +112,16 @@ RSpec.describe PestControl::DashboardHelper, type: :helper do
       result = helper.relative_time(time)
       expect(result).to include(time.strftime("%Y-%m-%d"))
     end
+
+    it "works with Time objects from banned_ips (parsed from ISO 8601)" do
+      PestControl.ban_ip!("9.9.9.9", "test")
+      banned = PestControl.banned_ips
+      banned_at = banned["9.9.9.9"][:banned_at]
+
+      result = helper.relative_time(banned_at)
+      expect(result).to include("relative-time")
+      expect(result).to include("ago")
+    end
   end
 
   describe "#trap_type_badge" do
