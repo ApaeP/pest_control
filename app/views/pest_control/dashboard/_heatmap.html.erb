@@ -1,7 +1,7 @@
 <%# locals: (heatmap:) %>
 <%
   day_names = %w[Sun Mon Tue Wed Thu Fri Sat]
-  max_value = heatmap.values.flat_map(&:values).max || 1
+  max_value = [heatmap.values.flat_map(&:values).max.to_i, 1].max
   
   # Calculate intensity class based on value
   def heatmap_intensity(value, max_value)

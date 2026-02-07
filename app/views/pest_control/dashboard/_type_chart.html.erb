@@ -1,7 +1,7 @@
 <%# locals: (by_type:) %>
 
 <% if by_type.any? %>
-  <% max_count = by_type.values.max || 1 %>
+  <% max_count = [by_type.values.max.to_i, 1].max %>
   <% by_type.each do |type, count| %>
     <div class="type-bar">
       <span class="type-name"><%= PestControl::TrapRecord::TRAP_TYPE_LABELS[type] || type.titleize %></span>

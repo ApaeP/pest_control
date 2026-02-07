@@ -1,6 +1,6 @@
 <%# locals: (daily_stats:) %>
 <%
-  max_count = daily_stats.map { |d| d[:count] }.max || 1
+  max_count = [daily_stats.map { |d| d[:count] }.max.to_i, 1].max
   day_names = %w[Sun Mon Tue Wed Thu Fri Sat]
 %>
 

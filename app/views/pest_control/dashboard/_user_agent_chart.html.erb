@@ -2,7 +2,7 @@
 
 <% if user_agent_stats.any? %>
   <div class="ua-chart">
-    <% max_count = user_agent_stats.first[:count] %>
+    <% max_count = [user_agent_stats.first[:count], 1].max %>
     <% user_agent_stats.each do |ua| %>
       <div class="ua-bar-row">
         <div class="ua-name" title="<%= ua[:user_agent] %>">
