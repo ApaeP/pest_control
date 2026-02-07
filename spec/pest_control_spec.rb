@@ -101,6 +101,18 @@ RSpec.describe PestControl do
         expect(result.keys).to contain_exactly("1.1.1.1", "2.2.2.2")
         expect(result["1.1.1.1"][:reason]).to eq("reason1")
       end
+
+      it "returns parsed Time objects for banned_at and expires_at" do
+        described_class.ban_ip!("3.3.3.3", "test_reason")
+
+        result = described_class.banned_ips
+        info = result["3.3.3.3"]
+
+        expect(info[:banned_at]).to be_a(ActiveSupport::TimeWithZone)
+        expect(info[:expires_at]).to be_a(ActiveSupport::TimeWithZone)
+        expect(info[:banned_at]).to be_within(2.seconds).of(Time.current)
+        expect(info[:expires_at]).to be_within(2.seconds).of(Time.current + described_class.configuration.ban_duration)
+      end
     end
   end
 
