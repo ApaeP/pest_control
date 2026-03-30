@@ -51,7 +51,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: matrix.ruby == '3.4' && matrix.rails == '8.1'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage/.resultset.json
