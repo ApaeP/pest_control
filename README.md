@@ -56,6 +56,7 @@ PestControl ships with **conservative defaults** suitable for production:
 | Max tarpit delay | **10s** | Reasonable delay without blocking too long |
 | Credentials storage | **:hash_password** | Passwords are SHA256 hashed, never stored in clear |
 | Sensitive headers | **Redacted** | Cookie, Authorization, API keys never logged |
+| Sentry integration | **Disabled** | Honeypots are noisy; opt-in to avoid flooding your issue inbox |
 
 To enable more aggressive features, see [Configuration Profiles](#configuration-profiles).
 
@@ -151,7 +152,7 @@ PestControl.configure do |config|
 
   # Logging
   config.log_level = :warn  # :debug, :info, :warn, :error
-  config.sentry_enabled = true
+  config.sentry_enabled = false  # opt-in; honeypots are noisy by design
 end
 ```
 
@@ -392,7 +393,10 @@ config.on_metrics = ->(data) {
 
 ### Sentry Integration
 
-When Sentry is available and enabled:
+**Disabled by default.** Honeypots are intentionally loud — enabling Sentry
+will produce one event per trapped bot, which can easily reach hundreds per
+hour on a public-facing server. Only enable it if you have a dedicated
+alerting strategy:
 
 ```ruby
 config.sentry_enabled = true
@@ -402,6 +406,9 @@ Events are sent with:
 - Level: `warning`
 - Extra data: full trap data
 - Message: `[PEST_CONTROL] Bot trapped: {type}`
+
+For high-volume telemetry, prefer `config.on_metrics` (Prometheus/StatsD) and
+keep Sentry for application errors only.
 
 ## rack-attack Integration
 
@@ -467,7 +474,7 @@ config.dashboard_auto_refresh = 60  # nil to disable (default)
 
 ### Dashboard Features
 
-Access at `/pest-control/lab`:
+Access at `/pest-control`:
 
 - **Stats with Trends**: Total specimens, daily comparison, credentials captured
 - **7-Day Activity Chart**: Visual bar chart of recent activity

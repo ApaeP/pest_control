@@ -70,14 +70,6 @@ RSpec.describe PestControl::RackAttackRules do
       expect(result).to be false
     end
 
-    it "does not block pest-control routes" do
-      PestControl.ban_ip!("1.2.3.4", "test")
-      req = Struct.new(:ip, :path).new("1.2.3.4", "/pest-control/lab")
-
-      result = blocklist_proc.call(req)
-      expect(result).to be false
-    end
-
     it "does not block /pest-control exactly" do
       PestControl.ban_ip!("1.2.3.4", "test")
       req = Struct.new(:ip, :path).new("1.2.3.4", "/pest-control")

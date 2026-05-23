@@ -116,8 +116,13 @@ PestControl.configure do |config|
   # Log level: :debug, :info, :warn, :error (default: :warn)
   # config.log_level = :warn
 
-  # Enable Sentry integration (default: true, requires sentry-ruby gem)
-  # config.sentry_enabled = true
+  # Enable Sentry integration (default: false, requires sentry-ruby gem)
+  # WARNING: honeypots can fire dozens of events per minute when bots are
+  # actively scanning. Enabling Sentry without rate-limiting will flood your
+  # issue inbox and may burn through your monthly quota. Prefer wiring
+  # `config.on_metrics` to Prometheus/StatsD for high-volume events and keep
+  # Sentry for application errors only.
+  # config.sentry_enabled = false
 
   # Custom logger (default: Rails.logger)
   # config.logger = Rails.logger
@@ -222,7 +227,7 @@ PestControl.configure do |config|
   # ============================================================================
   # Enable this to persist bot attempts in your database and access the dashboard.
   # Run: rails generate pest_control:memory
-  # Dashboard URL: /pest-control/lab
+  # Dashboard URL: /pest-control
 
   # Enable database persistence (default: false)
   # config.memory_enabled = false

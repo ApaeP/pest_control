@@ -5,7 +5,7 @@ module PestControl
     before_action :authenticate!
     before_action :ensure_memory_enabled
 
-    # GET /pest-control/lab
+    # GET /pest-control
     def lab
       @stats = TrapRecord.stats
       @recent_records = TrapRecord.recent.limit(10)
@@ -23,7 +23,7 @@ module PestControl
       render layout: false
     end
 
-    # GET /pest-control/lab/records
+    # GET /pest-control/records
     def records
       @records = TrapRecord.recent
 
@@ -64,27 +64,27 @@ module PestControl
       render layout: false
     end
 
-    # GET /pest-control/lab/record/:id
+    # GET /pest-control/record/:id
     def show
-      @record = TrapRecord.find(params[:id])
+      @record = TrapRecord.find(params.expect(:id))
       render layout: false
     end
 
-    # POST /pest-control/lab/unban/:ip
+    # POST /pest-control/unban/:ip
     def unban
       ip = params[:ip]
       PestControl.unban_ip!(ip)
       redirect_to pest_control_lab_path, notice: "IP #{ip} has been unbanned!"
     end
 
-    # POST /pest-control/lab/ban/:ip
+    # POST /pest-control/ban/:ip
     def ban
       ip = params[:ip]
       PestControl.ban_ip!(ip, "manual_ban_from_dashboard")
       redirect_to pest_control_lab_path, notice: "IP #{ip} has been banned!"
     end
 
-    # GET /pest-control/lab/export.csv
+    # GET /pest-control/export.csv
     def export
       records = build_filtered_records
 

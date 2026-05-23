@@ -14,10 +14,10 @@ RSpec.describe "PestControl::DashboardController", type: :request do
     PestControl.configuration.dashboard_auth = ->(_controller) { true }
   end
 
-  describe "GET /pest-control/lab" do
+  describe "GET /pest-control" do
     context "with no data (zero records, no banned IPs)" do
       it "renders successfully without FloatDomainError" do
-        get "/pest-control/lab"
+        get "/pest-control"
 
         expect(response).to have_http_status(:ok)
         expect(response.body).to include("Pest Control Lab")
@@ -31,7 +31,7 @@ RSpec.describe "PestControl::DashboardController", type: :request do
       end
 
       it "renders successfully with data" do
-        get "/pest-control/lab"
+        get "/pest-control"
 
         expect(response).to have_http_status(:ok)
         expect(response.body).to include("Pest Control Lab")
@@ -46,7 +46,7 @@ RSpec.describe "PestControl::DashboardController", type: :request do
       end
 
       it "renders the banned IPs section with parsed times" do
-        get "/pest-control/lab"
+        get "/pest-control"
 
         expect(response).to have_http_status(:ok)
         expect(response.body).to include("Currently Banned IPs")

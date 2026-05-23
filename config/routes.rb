@@ -4,12 +4,14 @@ PestControl::Engine.routes.draw do
   # ===========================================================================
   # DASHBOARD (Memory Mode)
   # ===========================================================================
-  get  "pest-control/lab",            to: "dashboard#lab", as: :pest_control_lab
-  get  "pest-control/lab/records",    to: "dashboard#records", as: :pest_control_records
-  get  "pest-control/lab/export",     to: "dashboard#export", as: :pest_control_export, defaults: { format: :csv }
-  get  "pest-control/lab/record/:id", to: "dashboard#show", as: :pest_control_record
-  post "pest-control/lab/unban/:ip",  to: "dashboard#unban", as: :pest_control_unban, constraints: { ip: %r{[^/]+} }
-  post "pest-control/lab/ban/:ip",    to: "dashboard#ban", as: :pest_control_ban, constraints: { ip: %r{[^/]+} }
+  constraints(->(_req) { PestControl.memory_enabled? }) do
+    get  "pest-control",            to: "dashboard#lab", as: :pest_control_lab
+    get  "pest-control/records",    to: "dashboard#records", as: :pest_control_records
+    get  "pest-control/export",     to: "dashboard#export", as: :pest_control_export, defaults: { format: :csv }
+    get  "pest-control/record/:id", to: "dashboard#show", as: :pest_control_record
+    post "pest-control/unban/:ip",  to: "dashboard#unban", as: :pest_control_unban, constraints: { ip: %r{[^/]+} }
+    post "pest-control/ban/:ip",    to: "dashboard#ban", as: :pest_control_ban, constraints: { ip: %r{[^/]+} }
+  end
 
   # ===========================================================================
   # TRAPS
@@ -46,13 +48,13 @@ PestControl::Engine.routes.draw do
   get ".env",                to: "traps#catch_all"
   get ".git/*path",          to: "traps#catch_all"
 
-  # Catch-all for legacy extensions (must be last)
-  constraints(->(req) { PestControl::LegacyHandler.legacy_extension?(req.path) }) do
+  # Catch-all for any .php file
+  constraints(->(req) { req.path.end_with?(".php") }) do
     match "*path", to: "traps#catch_all", via: :all
   end
 
-  # Catch-all for any .php file
-  constraints(->(req) { req.path.end_with?(".php") }) do
+  # Catch-all for legacy extensions (must be last)
+  constraints(->(req) { PestControl::LegacyHandler.legacy_extension?(req.path) }) do
     match "*path", to: "traps#catch_all", via: :all
   end
 end

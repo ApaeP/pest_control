@@ -614,5 +614,9 @@ RSpec.describe PestControl do
       expect(config.redacted_headers).to include("Authorization")
       expect(config.redacted_headers).to include("X-Api-Key")
     end
+
+    it "has sentry_enabled disabled by default" do
+      expect(config.sentry_enabled).to be false
+    end
   end
 end
