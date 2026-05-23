@@ -13,11 +13,11 @@ namespace :pest_control do
     puts ""
     puts "Dashboard Routes (requires Memory Mode):"
     puts "-" * 60
-    puts "  GET    /pest-control/lab              Dashboard home"
-    puts "  GET    /pest-control/lab/records      Records list (paginated)"
-    puts "  GET    /pest-control/lab/record/:id   Record detail"
-    puts "  POST   /pest-control/lab/ban/:ip      Ban an IP"
-    puts "  POST   /pest-control/lab/unban/:ip    Unban an IP"
+    puts "  GET    /pest-control                  Dashboard"
+    puts "  GET    /pest-control/records          Records list (paginated)"
+    puts "  GET    /pest-control/record/:id       Record detail"
+    puts "  POST   /pest-control/ban/:ip          Ban an IP"
+    puts "  POST   /pest-control/unban/:ip        Unban an IP"
     puts ""
     puts "Honeypot Traps:"
     puts "-" * 60

@@ -41,7 +41,7 @@ module PestControl
         say "Next steps:", :yellow
         say "  1. Run `rails db:migrate` to create the trap_records table"
         say "  2. Configure dashboard authentication in config/initializers/pest_control.rb"
-        say "  3. Access the dashboard at: /pest-control/lab"
+        say "  3. Access the dashboard at: /pest-control"
         say ""
         say "Your honeypot now has a memory. Bots beware! 🐝", :green
         say ""

@@ -93,7 +93,11 @@ module PestControl
     # Log level for honeypot events: :debug, :info, :warn, :error (default: :warn)
     attr_accessor :log_level
 
-    # Enable Sentry integration (default: true)
+    # Enable Sentry integration (default: false)
+    # Disabled by default because honeypots are intentionally noisy: every
+    # scanner hitting /wp-login.php would generate a Sentry event. Enable
+    # only if you have a dedicated alert routing and a Sentry quota that
+    # tolerates the volume, or pair it with a rate-limited callback.
     attr_accessor :sentry_enabled
 
     # Custom callback when a bot is trapped
@@ -255,7 +259,7 @@ module PestControl
       @logger = nil
       @cache = nil
       @log_level = :warn
-      @sentry_enabled = true
+      @sentry_enabled = false
       @on_bot_trapped = nil
       @on_ip_banned = nil
       @on_endless_stream_start = nil
