@@ -33,8 +33,11 @@ module PestControl
       when "credentials"
         @records = @records.with_credentials
       when "unique_ips"
-        @records = @records.select("DISTINCT ON (ip) *").reorder("ip, created_at DESC") if postgres?
-        @records = @records.group(:ip) unless postgres?
+        @records = if postgres?
+                     @records.select("DISTINCT ON (ip) *").reorder("ip, created_at DESC")
+                   else
+                     @records.where(id: TrapRecord.group(:ip).select("MAX(id)"))
+                   end
       end
 
       @records = @records.search(params[:q]) if params[:q].present?
@@ -66,7 +69,7 @@ module PestControl
 
     # GET /pest-control/record/:id
     def show
-      @record = TrapRecord.find(params.expect(:id))
+      @record = TrapRecord.find(params.require(:id))
       render layout: false
     end
 
