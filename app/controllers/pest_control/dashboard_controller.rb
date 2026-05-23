@@ -69,7 +69,7 @@ module PestControl
 
     # GET /pest-control/record/:id
     def show
-      @record = TrapRecord.find(params.expect(:id))
+      @record = TrapRecord.find(params.require(:id))
       render layout: false
     end
 
