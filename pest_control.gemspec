@@ -28,7 +28,6 @@ Gem::Specification.new do |spec|
         rails generate pest_control:install
 
     This will add the routes and create the initializer.
-    Bots scanning for WordPress are about to have a bad time.
 
   MSG
 

@@ -45,9 +45,10 @@ jobs:
         run: bundle install --jobs 4
 
       - name: Run tests
-        run: bundle exec rspec --format progress
+        run: bin/ci test
         env:
           COVERAGE: ${{ matrix.ruby == '3.4' && matrix.rails == '8.1' && 'true' || '' }}
+          NO_COLOR: "1"
 
       - name: Upload coverage to Codecov
         if: matrix.ruby == '3.4' && matrix.rails == '8.1'
@@ -73,7 +74,9 @@ jobs:
         run: bundle install --jobs 4
 
       - name: Run RuboCop
-        run: bundle exec rubocop --parallel
+        run: bin/ci lint
+        env:
+          NO_COLOR: "1"
 
   security:
     runs-on: ubuntu-latest
@@ -91,6 +94,6 @@ jobs:
         run: bundle install --jobs 4
 
       - name: Run bundler-audit
-        run: |
-          gem install bundler-audit
-          bundle-audit check --update
+        run: bin/ci security
+        env:
+          NO_COLOR: "1"
