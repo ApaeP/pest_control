@@ -16,6 +16,7 @@ else
 end
 
 group :development, :test do
+  gem "bundler-audit", require: false
   gem "rspec-rails"
   gem "rubocop"
   gem "rubocop-rails"

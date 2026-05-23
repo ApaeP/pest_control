@@ -1,0 +1,100 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Run the complete CI suite, locally like on GitHub Actions.
+#
+# Usage:
+#   bin/ci             # run all checks (lint + test + security)
+#   bin/ci lint        # RuboCop
+#   bin/ci test        # RSpec
+#   bin/ci security    # bundler-audit
+#   bin/ci -h          # help
+#
+# Useful environment variables:
+#   RAILS_VERSION      # ex: "8.1", "edge" -- control the Rails version (cf. Gemfile)
+#   COVERAGE=true      # active SimpleCov during tests
+
+require "English"
+
+APP_ROOT = File.expand_path("..", __dir__)
+Dir.chdir(APP_ROOT)
+
+COLOR = $stdout.tty? && ENV["NO_COLOR"].nil?
+
+def colorize(text, code)
+  COLOR ? "\e[#{code}m#{text}\e[0m" : text
+end
+
+def bold(text)   = colorize(text, "1")
+def dim(text)    = colorize(text, "2")
+def blue(text)   = colorize(text, "1;34")
+def green(text)  = colorize(text, "1;32")
+def red(text)    = colorize(text, "1;31")
+def yellow(text) = colorize(text, "1;33")
+
+def section(title)
+  puts
+  puts blue("▶ #{title}")
+end
+
+def run!(name, command)
+  section(name)
+  puts dim("  $ #{command}")
+  start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  success = system(command)
+  duration = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+
+  if success
+    puts green("✓ #{name} OK") + dim(" (#{format("%.1f", duration)}s)")
+  else
+    puts red("✗ #{name} failed") + dim(" (#{format("%.1f", duration)}s)")
+    exit 1
+  end
+end
+
+CHECKS = {
+  "lint" => {
+    label:   "Lint (RuboCop)",
+    command: "bundle exec rubocop --parallel",
+  },
+  "test" => {
+    label:   "Tests (RSpec)",
+    command: "bundle exec rspec --format progress",
+  },
+  "security" => {
+    label:   "Security audit (bundler-audit)",
+    command: "bundle exec bundle-audit check --update",
+  },
+}.freeze
+
+def usage
+  puts <<~USAGE
+    Usage: bin/ci [SUBCOMMAND]
+
+    Sous-commandes:
+      lint        #{CHECKS["lint"][:label]}
+      test        #{CHECKS["test"][:label]}
+      security    #{CHECKS["security"][:label]}
+
+    Without argument, all checks are run in order: lint, test, security.
+  USAGE
+end
+
+case ARGV[0]
+when nil
+  total_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  CHECKS.each_value { |check| run!(check[:label], check[:command]) }
+  total = Process.clock_gettime(Process::CLOCK_MONOTONIC) - total_start
+  puts
+  puts green("✓ All CI checks passed") + dim(" (total: #{format("%.1f", total)}s)")
+when "lint", "test", "security"
+  check = CHECKS.fetch(ARGV[0])
+  run!(check[:label], check[:command])
+when "-h", "--help", "help"
+  usage
+else
+  warn red("Unknown command: #{ARGV[0]}")
+  warn ""
+  usage
+  exit 64
+end
