@@ -47,6 +47,32 @@ RSpec.describe "PestControl::DashboardController", type: :request do
       expect(response).to have_http_status(:forbidden)
       expect(response.body).to include("authentication not configured")
     end
+
+    it "allows unauthenticated access in development with a warning" do
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("development"))
+      PestControl.configuration.dashboard_auth = nil
+      PestControl.configuration.dashboard_username = nil
+      PestControl.configuration.dashboard_password = nil
+
+      expect(Rails.logger).to receive(:warn).with(/Dashboard accessed without authentication/)
+
+      get "/pest-control"
+
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
+  describe "memory mode" do
+    it "renders service unavailable when memory mode is disabled" do
+      controller = PestControl::DashboardController.new
+      allow(PestControl).to receive(:memory_enabled?).and_return(false)
+      expect(controller).to receive(:render).with(
+        plain: "🧠 Memory Mode is not enabled. Run `rails generate pest_control:memory` first.",
+        status: :service_unavailable
+      )
+
+      controller.send(:ensure_memory_enabled)
+    end
   end
 
   describe "GET /pest-control" do
@@ -144,6 +170,23 @@ RSpec.describe "PestControl::DashboardController", type: :request do
       expect(response.body).to include("2 records found")
     end
 
+    context "when postgres is the database adapter" do
+      before do
+        scope = PestControl::TrapRecord.all
+        allow(ActiveRecord::Base.connection).to receive(:adapter_name).and_return("PostgreSQL")
+        allow(PestControl::TrapRecord).to receive(:recent).and_return(scope)
+        allow(scope).to receive(:select).with("DISTINCT ON (ip) *").and_return(scope)
+        allow(scope).to receive(:reorder).with("ip, created_at DESC").and_return(scope)
+        allow(scope).to receive_messages(count: 0, offset: scope, limit: scope)
+      end
+
+      it "uses DISTINCT ON for unique IP filtering" do
+        get "/pest-control/records", params: { filter: "unique_ips" }
+
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
     it "filters by search query, type, IP, and date range" do
       get "/pest-control/records", params: {
         q: "BotScanner",
@@ -218,6 +261,18 @@ RSpec.describe "PestControl::DashboardController", type: :request do
       expect(response.body).to include("id,created_at,ip,trap_type")
       expect(response.body).to include("1.2.3.4")
       expect(response.body).to include("yes")
+    end
+
+    it "exports records filtered by today, type, and date range" do
+      get "/pest-control/export.csv", params: {
+        filter: "today",
+        type: "credential_capture",
+        from: 1.day.ago.to_date.iso8601,
+        to: Date.current.iso8601,
+      }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("text/csv")
     end
   end
 end

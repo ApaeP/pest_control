@@ -12,7 +12,8 @@
 #
 # Useful environment variables:
 #   RAILS_VERSION      # ex: "8.1", "edge" -- control the Rails version (cf. Gemfile)
-#   COVERAGE=true      # active SimpleCov during tests
+#   COVERAGE=true      # force SimpleCov during tests
+#   COVERAGE=false     # skip the coverage threshold check (faster local runs)
 
 require "English"
 
@@ -37,6 +38,17 @@ def section(title)
   puts blue("▶ #{title}")
 end
 
+def coverage_enabled?
+  return ENV["COVERAGE"] == "true" if ENV.key?("COVERAGE")
+
+  !ENV.key?("CI")
+end
+
+def rspec_command
+  command = "bundle exec rspec --format progress"
+  coverage_enabled? ? "COVERAGE=true #{command}" : command
+end
+
 def run!(name, command)
   section(name)
   puts dim("  $ #{command}")
@@ -59,7 +71,7 @@ CHECKS = {
   },
   "test" => {
     label:   "Tests (RSpec)",
-    command: "bundle exec rspec --format progress",
+    command: :rspec,
   },
   "security" => {
     label:   "Security audit (bundler-audit)",
@@ -73,23 +85,39 @@ def usage
 
     Sous-commandes:
       lint        #{CHECKS["lint"][:label]}
-      test        #{CHECKS["test"][:label]}
+      test        #{CHECKS["test"][:label]} (+ SimpleCov en local)
       security    #{CHECKS["security"][:label]}
 
     Without argument, all checks are run in order: lint, test, security.
+
+    Coverage (SimpleCov, min 80%) :
+      active par défaut en local via bin/ci test
+      désactivable avec COVERAGE=false
+      en CI GitHub Actions, active seulement si COVERAGE=true
   USAGE
+end
+
+def check_command(check)
+  command = check[:command]
+  command == :rspec ? rspec_command : command
+end
+
+def check_label(check)
+  return check[:label] unless check[:command] == :rspec && coverage_enabled?
+
+  "#{check[:label]} + coverage"
 end
 
 case ARGV[0]
 when nil
   total_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-  CHECKS.each_value { |check| run!(check[:label], check[:command]) }
+  CHECKS.each_value { |check| run!(check_label(check), check_command(check)) }
   total = Process.clock_gettime(Process::CLOCK_MONOTONIC) - total_start
   puts
   puts green("✓ All CI checks passed") + dim(" (total: #{format("%.1f", total)}s)")
 when "lint", "test", "security"
   check = CHECKS.fetch(ARGV[0])
-  run!(check[:label], check[:command])
+  run!(check_label(check), check_command(check))
 when "-h", "--help", "help"
   usage
 else
