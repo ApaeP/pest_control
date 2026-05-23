@@ -37,6 +37,7 @@ Gem::Specification.new do |spec|
 
   spec.required_ruby_version = ">= 3.0"
 
+  spec.add_dependency "csv"
   spec.add_dependency "rack-attack", ">= 6.0"
   spec.add_dependency "rails", ">= 7.0"
 end

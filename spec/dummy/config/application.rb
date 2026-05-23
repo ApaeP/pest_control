@@ -20,5 +20,6 @@ module Dummy
     config.active_record.maintain_test_schema = false
     config.consider_all_requests_local = true
     config.action_dispatch.show_exceptions = :none
+    config.action_controller.allow_forgery_protection = false
   end
 end
